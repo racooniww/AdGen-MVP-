@@ -25,5 +25,6 @@ if st.button("Reklam İçeriği Üret"):
     )
 
     st.subheader("Üretilen İçerikler")
-    st.write(response.choices[0].message["content"])
+    st.write(response.choices[0].message.content)
+
 
