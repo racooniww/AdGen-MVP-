@@ -1,21 +1,24 @@
+import google.generativeai as genai
 import base64
 from io import BytesIO
 from PIL import Image
 import streamlit as st
 from openai import OpenAI
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 
-def generate_image(prompt, size="1024x1024"):
-    result = client.images.generate(
-        model="gpt-image-1",
+
+def generate_image_gemini(prompt):
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    result = model.generate_images(
         prompt=prompt,
-        size=size
+        n=1,
+        size="1024x1024"
     )
-    b64 = result.data[0].b64_json
-    image_bytes = base64.b64decode(b64)
-    return Image.open(BytesIO(image_bytes))
+    image_data = result.images[0]
+    return image_data
+
 
 
 st.title("AdGen - Reklam İçerik Üretici")
@@ -52,24 +55,28 @@ if st.button("Reklam İçeriği Üret"):
 # GÖRSEL ÜRETME KISMI
 # -------------------------
 if st.button("Görsel Oluştur"):
-    image_prompt = f"{product} ürünü için, {audience} kitlesine uygun, dikkat çekici bir reklam görseli"
+    if not product or not audience:
+        st.warning("Lütfen ürün ve hedef kitle giriniz.")
+    else:
+        with st.spinner("Görsel üretiliyor..."):
+            image_prompt = f"{product} için {audience} hedef kitlesine uygun profesyonel reklam görseli"
+            try:
+                img = generate_image_gemini(image_prompt)
+                st.image(img, caption="Üretilen Görsel", use_column_width=True)
+            except Exception as e:
+                st.error(f"Görsel oluşturulurken hata oluştu: {e}")
+import base64
+from io import BytesIO
+from PIL import Image
 
-    with st.spinner("Görsel üretiliyor..."):
-        try:
-            img = generate_image(image_prompt)
-            st.image(img, caption="Üretilen Reklam Görseli", use_column_width=True)
+buffer = BytesIO()
+img.save(buffer, format="PNG")
 
-            # Download button (sadece görsel üretildiyse)
-            buffer = BytesIO()
-            img.save(buffer, format="PNG")
-            st.download_button(
-                label="Görseli İndir",
-                data=buffer.getvalue(),
-                file_name="adgen_visual.png",
-                mime="image/png"
-            )
-
-        except Exception as e:
-            st.error(f"Görsel oluşturulurken hata oluştu: {e}")
+st.download_button(
+    label="Görseli İndir",
+    data=buffer.getvalue(),
+    file_name="adgen_gemini_visual.png",
+    mime="image/png"
+)
 
 
