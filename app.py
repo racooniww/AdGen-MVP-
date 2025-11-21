@@ -41,14 +41,10 @@ if st.button("Reklam İçeriği Üret"):
     Bana bu bilgilerle 3 farklı reklam metni, 1 başlık ve 1 görsel fikri öner.
     """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}]
-    )
+  model = genai.GenerativeModel("gemini-1.5-flash")
+response = model.generate_content(prompt)
 
-    st.subheader("Üretilen İçerikler")
-    st.write(response.choices[0].message.content)
-    st.subheader("🎨 Reklam Görseli Oluştur")
+st.write(response.text)
 
 
 # -------------------------
