@@ -6,6 +6,7 @@ from openai import OpenAI
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
+
 def generate_image(prompt, size="1024x1024"):
     result = client.images.generate(
         model="gpt-image-1",
@@ -24,7 +25,9 @@ audience = st.text_input("Hedef Kitle:")
 platform = st.selectbox("Platform", ["Instagram", "TikTok", "LinkedIn", "Facebook"])
 tone = st.selectbox("Üslup", ["Eğlenceli", "Profesyonel", "Samimi"])
 
-# Metin üretimi
+# -------------------------
+# METİN ÜRETME KISMI
+# -------------------------
 if st.button("Reklam İçeriği Üret"):
     prompt = f"""
     Ürün: {product}
@@ -42,25 +45,31 @@ if st.button("Reklam İçeriği Üret"):
 
     st.subheader("Üretilen İçerikler")
     st.write(response.choices[0].message.content)
+    st.subheader("🎨 Reklam Görseli Oluştur")
 
-# Görsel üretimi
-st.subheader("🎨 Reklam Görseli Oluştur")
 
-if st.button("Görsel Üret"):
+# -------------------------
+# GÖRSEL ÜRETME KISMI
+# -------------------------
+if st.button("Görsel Oluştur"):
+    image_prompt = f"{product} ürünü için, {audience} kitlesine uygun, dikkat çekici bir reklam görseli"
+
     with st.spinner("Görsel üretiliyor..."):
-        image_prompt = f"{product} ürünü için, {audience} kitlesine uygun, dikkat çekici reklam görseli"
-        img = generate_image(image_prompt)
-        st.image(img, caption="Üretilen Reklam Görseli", use_column_width=True)
+        try:
+            img = generate_image(image_prompt)
+            st.image(img, caption="Üretilen Reklam Görseli", use_column_width=True)
 
-        # İndirme butonu
-        buffer = BytesIO()
-        img.save(buffer, format="PNG")
-        st.download_button(
-            label="Görseli İndir",
-            data=buffer.getvalue(),
-            file_name="adgen_visual.png",
-            mime="image/png"
-        )
+            # Download button (sadece görsel üretildiyse)
+            buffer = BytesIO()
+            img.save(buffer, format="PNG")
+            st.download_button(
+                label="Görseli İndir",
+                data=buffer.getvalue(),
+                file_name="adgen_visual.png",
+                mime="image/png"
+            )
 
+        except Exception as e:
+            st.error(f"Görsel oluşturulurken hata oluştu: {e}")
 
 
