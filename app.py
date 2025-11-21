@@ -7,18 +7,17 @@ from PIL import Image
 
 
 # ---------------------------------------------------
-# SECRETS (Streamlit Cloud)
+# Streamlit Secrets
 # ---------------------------------------------------
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 
 
 # ---------------------------------------------------
-# 1) STABILITY v1 — Base64 JSON Görsel Üretimi
-#    (Streamlit Cloud ile %100 uyumlu)
+# Stability SDXL 1024 MODEL — %100 ÇALIŞIR
 # ---------------------------------------------------
 def generate_image_stability(prompt):
-    url = "https://api.stability.ai/v1/generation/stable-diffusion-512-v2-1/text-to-image"
+    url = "https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image"
 
     headers = {
         "Authorization": f"Bearer {STABILITY_API_KEY}",
@@ -29,8 +28,8 @@ def generate_image_stability(prompt):
     payload = {
         "text_prompts": [{"text": prompt}],
         "cfg_scale": 7,
-        "height": 512,
-        "width": 512,
+        "height": 1024,
+        "width": 1024,
         "samples": 1,
         "steps": 30
     }
@@ -40,16 +39,15 @@ def generate_image_stability(prompt):
     if response.status_code != 200:
         raise ValueError(f"Stability API Hatası: {response.text}")
 
-    # Base64 → Görsel
+    # Base64 → PNG görüntüye çevir
     data = response.json()
     image_base64 = data["artifacts"][0]["base64"]
     image_bytes = base64.b64decode(image_base64)
-
     return Image.open(BytesIO(image_bytes))
 
 
 # ---------------------------------------------------
-# 2) Gemini Input Prompt Fonksiyonları
+# Gemini Prompt / Metin Fonksiyonları
 # ---------------------------------------------------
 def build_text_prompt(product, audience, platform, tone):
     return f"""
@@ -62,43 +60,41 @@ Platform: {platform}
 
 Aşağıdaki formatta reklam içeriği oluştur:
 
-1) 3 kısa başlık
-2) 2 farklı reklam metni (A/B testi)
-3) Kampanya sloganı
-4) 8 hashtag
+- 3 kısa başlık
+- 2 farklı reklam metni (A/B testi için)
+- Kampanya sloganı
+- 8 hashtag
 """
 
 
 def build_image_prompt(product, audience, platform, tone):
     return f"""
-Sen üst düzey bir reklam tasarımcısın.
+Sen profesyonel bir reklam tasarımcısın.
 
 Ürün: {product}
-Hedef kitle: {audience}
+Hedef Kitle: {audience}
 Platform: {platform}
 Üslup: {tone}
 
-Profesyonel bir reklam görseli için detaylı tasarım promptu oluştur:
+Reklam görseli için detaylı tasarım promptu üret:
 
-1) Kompozisyon
-2) Arka plan
-3) Işıklandırma
-4) Kamera açısı
-5) Renk paleti
-6) SDXL – Midjourney – DALL·E için tek satırlık İngilizce prompt
+1. Kompozisyon
+2. Arka plan (renk/doku)
+3. Işıklandırma (soft/studio light)
+4. Kamera açısı
+5. Renk paleti
+6. SDXL/DALL·E/Midjourney için tek İngilizce prompt
 """
 
 
-# ---------------------------------------------------
-# 3) Gemini Metin Modeli
-# ---------------------------------------------------
+# Gemini modeli
 text_model = genai.GenerativeModel("models/gemini-pro-latest")
 
 
 # ---------------------------------------------------
-# 4) Streamlit Arayüzü
+# Streamlit Arayüzü
 # ---------------------------------------------------
-st.title("🎯 AdGen – AI Reklam İçeriği + Prompt + Görsel Üretici")
+st.title("🎯 AdGen — AI Reklam Metni + Prompt + Görsel Üretici")
 
 product = st.text_input("🛍 Ürün / Hizmet:")
 audience = st.text_input("🎯 Hedef Kitle:")
@@ -107,65 +103,63 @@ tone = st.selectbox("🎨 Üslup:", ["Eğlenceli", "Profesyonel", "Samimi", "İk
 
 
 # ---------------------------------------------------
-# 5) Reklam Metni (Gemini)
+# Reklam Metni (Gemini)
 # ---------------------------------------------------
 if st.button("📝 Reklam Metni Üret"):
     if not product or not audience:
-        st.warning("⚠ Lütfen tüm alanları doldurun.")
+        st.warning("⚠ Lütfen gerekli bilgileri doldurun.")
     else:
-        with st.spinner("Metin üretiliyor..."):
+        with st.spinner("Reklam metni üretiliyor..."):
             try:
                 prompt = build_text_prompt(product, audience, platform, tone)
-                response = text_model.generate_content(prompt)
-                st.subheader("📌 Üretilen Reklam Metni")
-                st.write(response.text)
+                result = text_model.generate_content(prompt)
+                st.subheader("📌 Reklam Metni")
+                st.write(result.text)
             except Exception as e:
                 st.error(f"Metin üretimi hatası: {e}")
 
 
 # ---------------------------------------------------
-# 6) Görsel Tasarım Promptu (Gemini)
+# Görsel Tasarım Promptu (Gemini)
 # ---------------------------------------------------
 if st.button("🎨 Görsel Tasarım Promptu Üret"):
     if not product or not audience:
-        st.warning("⚠ Lütfen tüm alanları doldurun.")
+        st.warning("⚠ Lütfen gerekli bilgileri doldurun.")
     else:
         with st.spinner("Prompt üretiliyor..."):
             try:
                 prompt = build_image_prompt(product, audience, platform, tone)
-                response = text_model.generate_content(prompt)
+                result = text_model.generate_content(prompt)
                 st.subheader("🖼 Görsel Tasarım Promptu")
-                st.write(response.text)
+                st.write(result.text)
             except Exception as e:
                 st.error(f"Prompt üretimi hatası: {e}")
 
 
 # ---------------------------------------------------
-# 7) Gerçek AI Görsel Üretimi (Stability)
+# Gerçek Görsel Üretimi (Stability SDXL 1024)
 # ---------------------------------------------------
 if st.button("🖼 Gerçek AI Görseli Üret"):
     if not product or not audience:
-        st.warning("⚠ Lütfen tüm alanları doldurun.")
+        st.warning("⚠ Lütfen gerekli bilgileri doldurun.")
     else:
         sd_prompt = (
             f"{product} için {audience} hedef kitlesine yönelik "
-            "profesyonel reklam fotoğrafı. Studio lighting, ultra realistic, "
-            "4K product shot."
+            "profesyonel reklam fotoğrafı, ultra realistic, studio lighting, 4K product shot."
         )
 
-        with st.spinner("AI görseli üretiliyor..."):
+        with st.spinner("Görsel üretiliyor..."):
             try:
                 img = generate_image_stability(sd_prompt)
-
-                st.subheader("🖼 Üretilen Reklam Görseli")
+                st.subheader("🖼 Üretilen Görsel")
                 st.image(img, use_column_width=True)
 
-                # İndirilebilir dosya
-                buffer = BytesIO()
-                img.save(buffer, format="PNG")
+                # indirilebilir dosya
+                buf = BytesIO()
+                img.save(buf, format="PNG")
                 st.download_button(
                     "📥 Görseli İndir",
-                    buffer.getvalue(),
+                    buf.getvalue(),
                     "adgen_reklam.png",
                     "image/png"
                 )
