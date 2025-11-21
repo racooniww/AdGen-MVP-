@@ -52,7 +52,7 @@ if st.button("Reklam Metni Üret"):
 
 
 # =================================
-# 2️⃣ GÖRSEL ÜRETİMİ
+# 2️⃣ GÖRSEL ÜRETİMİ (DÜZELTİLMİŞ)
 # =================================
 if st.button("Reklam Görseli Üret"):
     if not product or not audience:
@@ -66,10 +66,12 @@ if st.button("Reklam Görseli Üret"):
 
         with st.spinner("Görsel üretiliyor, lütfen bekleyin..."):
             try:
-                img_response = image_model.generate_image(prompt=image_prompt)
+                # DOĞRU FONKSİYON
+                img_response = image_model.generate_images(prompt=image_prompt)
 
-                # Görseli streamlit'te göstermek için dönüştür
-                img = Image.open(BytesIO(img_response.image))
+                # Görsel verisini alma
+                raw_image = img_response.generations[0].image
+                img = Image.open(BytesIO(raw_image))
 
                 st.image(img, caption="🖼 Üretilen Reklam Görseli", use_column_width=True)
 
