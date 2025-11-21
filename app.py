@@ -1,68 +1,62 @@
 import streamlit as st
 import google.generativeai as genai
 import requests
+import base64
 from io import BytesIO
 from PIL import Image
 
 
 # ---------------------------------------------------
-# API KEYS (Streamlit Secrets)
+# SECRETS (Streamlit Cloud)
 # ---------------------------------------------------
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 
-# Stability AI endpoint (gerçek görsel)
-STABILITY_URL = "https://api.stability.ai/v2beta/stable-image/generate/core"
-
-# Gemini metin modeli
-text_model = genai.GenerativeModel("models/gemini-pro-latest")
-
 
 # ---------------------------------------------------
-# STABILITY.AI GÖRSEL ÜRETİMİ (KESİN ÇALIŞAN)
+# 1) STABILITY v1 — Base64 JSON Görsel Üretimi
+#    (Streamlit Cloud ile %100 uyumlu)
 # ---------------------------------------------------
 def generate_image_stability(prompt):
+    url = "https://api.stability.ai/v1/generation/stable-diffusion-512-v2-1/text-to-image"
 
     headers = {
         "Authorization": f"Bearer {STABILITY_API_KEY}",
-        "Accept": "image/png"   # PNG çıktısı almak için zorunlu
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
 
-    # Form-data alanları
-    data = {
-        "prompt": prompt,
-        "aspect_ratio": "1:1",
-        "output_format": "png"
+    payload = {
+        "text_prompts": [{"text": prompt}],
+        "cfg_scale": 7,
+        "height": 512,
+        "width": 512,
+        "samples": 1,
+        "steps": 30
     }
 
-    # Multipart'ı tetiklemek için boş file alanı zorunlu
-    files = {
-        "none": (None, "")
-    }
-
-    response = requests.post(
-        STABILITY_URL,
-        headers=headers,
-        data=data,
-        files=files
-    )
+    response = requests.post(url, headers=headers, json=payload)
 
     if response.status_code != 200:
         raise ValueError(f"Stability API Hatası: {response.text}")
 
-    # PNG binary olarak döner
-    return Image.open(BytesIO(response.content))
+    # Base64 → Görsel
+    data = response.json()
+    image_base64 = data["artifacts"][0]["base64"]
+    image_bytes = base64.b64decode(image_base64)
+
+    return Image.open(BytesIO(image_bytes))
 
 
 # ---------------------------------------------------
-# PROMPT OLUŞTURUCU FONKSİYONLAR (GEMINI)
+# 2) Gemini Input Prompt Fonksiyonları
 # ---------------------------------------------------
 def build_text_prompt(product, audience, platform, tone):
     return f"""
 Sen bir dijital pazarlama uzmanısın.
 
 Ürün: {product}
-Hedef Kitle: {audience}
+Hedef kitle: {audience}
 Platform: {platform}
 Üslup: {tone}
 
@@ -80,25 +74,31 @@ def build_image_prompt(product, audience, platform, tone):
 Sen üst düzey bir reklam tasarımcısın.
 
 Ürün: {product}
-Hedef Kitle: {audience}
+Hedef kitle: {audience}
 Platform: {platform}
 Üslup: {tone}
 
-Profesyonel bir reklam görseli için aşağıdaki formatta detaylı tasarım promptu üret:
+Profesyonel bir reklam görseli için detaylı tasarım promptu oluştur:
 
-1) Kompozisyon (ürün sahnede nerede?)
-2) Arka plan (renk / doku / tema)
-3) Işıklandırma (soft light, studio light)
-4) Kamera açısı (macro / close-up / 45 degree)
-5) Renk paleti (minimal / canlı / pastel)
+1) Kompozisyon
+2) Arka plan
+3) Işıklandırma
+4) Kamera açısı
+5) Renk paleti
 6) SDXL – Midjourney – DALL·E için tek satırlık İngilizce prompt
 """
 
 
 # ---------------------------------------------------
-# STREAMLIT ARAYÜZÜ
+# 3) Gemini Metin Modeli
 # ---------------------------------------------------
-st.title("🎯 AdGen – AI Reklam Metni + Prompt + Gerçek Görsel Üretici")
+text_model = genai.GenerativeModel("models/gemini-pro-latest")
+
+
+# ---------------------------------------------------
+# 4) Streamlit Arayüzü
+# ---------------------------------------------------
+st.title("🎯 AdGen – AI Reklam İçeriği + Prompt + Görsel Üretici")
 
 product = st.text_input("🛍 Ürün / Hizmet:")
 audience = st.text_input("🎯 Hedef Kitle:")
@@ -107,54 +107,60 @@ tone = st.selectbox("🎨 Üslup:", ["Eğlenceli", "Profesyonel", "Samimi", "İk
 
 
 # ---------------------------------------------------
-# 1) REKLAM METNİ (GEMINI)
+# 5) Reklam Metni (Gemini)
 # ---------------------------------------------------
 if st.button("📝 Reklam Metni Üret"):
     if not product or not audience:
         st.warning("⚠ Lütfen tüm alanları doldurun.")
     else:
         with st.spinner("Metin üretiliyor..."):
-            prompt = build_text_prompt(product, audience, platform, tone)
-            response = text_model.generate_content(prompt)
-            st.subheader("📌 Üretilen Reklam Metni")
-            st.write(response.text)
+            try:
+                prompt = build_text_prompt(product, audience, platform, tone)
+                response = text_model.generate_content(prompt)
+                st.subheader("📌 Üretilen Reklam Metni")
+                st.write(response.text)
+            except Exception as e:
+                st.error(f"Metin üretimi hatası: {e}")
 
 
 # ---------------------------------------------------
-# 2) GÖRSEL TASARIM PROMPTU (GEMINI)
+# 6) Görsel Tasarım Promptu (Gemini)
 # ---------------------------------------------------
 if st.button("🎨 Görsel Tasarım Promptu Üret"):
     if not product or not audience:
         st.warning("⚠ Lütfen tüm alanları doldurun.")
     else:
         with st.spinner("Prompt üretiliyor..."):
-            prompt = build_image_prompt(product, audience, platform, tone)
-            response = text_model.generate_content(prompt)
-            st.subheader("🖼 Görsel Tasarım Fikri")
-            st.write(response.text)
+            try:
+                prompt = build_image_prompt(product, audience, platform, tone)
+                response = text_model.generate_content(prompt)
+                st.subheader("🖼 Görsel Tasarım Promptu")
+                st.write(response.text)
+            except Exception as e:
+                st.error(f"Prompt üretimi hatası: {e}")
 
 
 # ---------------------------------------------------
-# 3) GERÇEK GÖRSEL ÜRETİMİ (STABILITY AI)
+# 7) Gerçek AI Görsel Üretimi (Stability)
 # ---------------------------------------------------
-if st.button("🖼 Gerçek Reklam Görseli Üret (AI – Stability AI)"):
+if st.button("🖼 Gerçek AI Görseli Üret"):
     if not product or not audience:
         st.warning("⚠ Lütfen tüm alanları doldurun.")
     else:
-
         sd_prompt = (
-            f"{product}, {audience} kitlesine yönelik profesyonel bir reklam fotoğrafı. "
-            f"Studio lighting, ultra realistic, 4K, product shot, clean background."
+            f"{product} için {audience} hedef kitlesine yönelik "
+            "profesyonel reklam fotoğrafı. Studio lighting, ultra realistic, "
+            "4K product shot."
         )
 
-        with st.spinner("Gerçek AI görseli üretiliyor..."):
+        with st.spinner("AI görseli üretiliyor..."):
             try:
                 img = generate_image_stability(sd_prompt)
 
-                st.subheader("🖼 AI Tarafından Üretilen Görsel")
+                st.subheader("🖼 Üretilen Reklam Görseli")
                 st.image(img, use_column_width=True)
 
-                # İndirme
+                # İndirilebilir dosya
                 buffer = BytesIO()
                 img.save(buffer, format="PNG")
                 st.download_button(
