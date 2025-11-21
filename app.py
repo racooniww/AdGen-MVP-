@@ -50,9 +50,8 @@ if st.button("Reklam Metni Üret"):
             st.error(f"Metin oluşturulurken hata oluştu: {e}")
 
 
-
 # =================================
-# 2️⃣ GÖRSEL ÜRETİMİ (DÜZELTİLMİŞ)
+# 2️⃣ GÖRSEL ÜRETİMİ (GÜNCEL YÖNTEM)
 # =================================
 if st.button("Reklam Görseli Üret"):
     if not product or not audience:
@@ -64,18 +63,18 @@ if st.button("Reklam Görseli Üret"):
             f"Platform: {platform}. Stil: {tone}."
         )
 
-        with st.spinner("Görsel üretiliyor, lütfen bekleyin..."):
+        with st.spinner("Görsel üretiliyor..."):
             try:
-                # DOĞRU FONKSİYON
-                img_response = image_model.generate_images(prompt=image_prompt)
+                # Görsel üretimi generate_content ile yapılır
+                img_response = image_model.generate_content(image_prompt)
 
-                # Görsel verisini alma
-                raw_image = img_response.generations[0].image
-                img = Image.open(BytesIO(raw_image))
+                # İlk asset → görüntü
+                image_bytes = img_response.assets[0].data
+                img = Image.open(BytesIO(image_bytes))
 
                 st.image(img, caption="🖼 Üretilen Reklam Görseli", use_column_width=True)
 
-                # İndirme butonu
+                # İndirilebilir hale getir
                 buffer = BytesIO()
                 img.save(buffer, format="PNG")
                 st.download_button(
