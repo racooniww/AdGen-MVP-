@@ -1,53 +1,51 @@
 import streamlit as st
 import google.generativeai as genai
 import requests
+import base64
 from io import BytesIO
 from PIL import Image
 
-# ============================================================
-# API Keys (Streamlit Secrets)
-# ============================================================
-
-# Gemini API
+# ---------------------------------------------------
+# API KEY'LER (Streamlit Secrets)
+# ---------------------------------------------------
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 
-# HuggingFace Stable Diffusion XL (çalışan model)
-HF_API_URL = "https://router.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-
-
-# ============================================================
-# Modeller
-# ============================================================
+# Stability AI görsel üretim endpointi (Çalışan)
+STABILITY_URL = "https://api.stability.ai/v2beta/stable-image/generate/core"
 
 # Gemini metin modeli
 text_model = genai.GenerativeModel("models/gemini-pro-latest")
 
 
-# ============================================================
-# Yardımcı Fonksiyonlar
-# ============================================================
-
-def generate_image_hf(prompt):
-    """
-    HuggingFace SDXL ile gerçek görsel üretir.
-    """
+# ---------------------------------------------------
+# STABILITY AI GÖRSEL ÜRETİM FONKSİYONU
+# ---------------------------------------------------
+def generate_image_stability(prompt):
     headers = {
-        "Authorization": f"Bearer {st.secrets['HF_API_KEY']}",
-        "Content-Type": "application/json"
+        "Authorization": f"Bearer {STABILITY_API_KEY}",
+        "Accept": "application/json"
     }
 
-    response = requests.post(HF_API_URL, headers=headers, json={"inputs": prompt})
+    payload = {
+        "prompt": prompt,
+        "output_format": "png",
+        "aspect_ratio": "1:1"
+    }
 
-    # Model yeni yükleniyorsa bekleme hatası döner
-    if response.status_code == 503:
-        raise ValueError("Model yükleniyor. 10 saniye sonra tekrar deneyin.")
+    response = requests.post(STABILITY_URL, headers=headers, json=payload)
 
     if response.status_code != 200:
-        raise ValueError(f"HuggingFace API Hatası: {response.text}")
+        raise ValueError(f"Stability API Hatası: {response.text}")
 
-    return Image.open(BytesIO(response.content))
+    data = response.json()
+    image_base64 = data["image"]
+    return Image.open(BytesIO(base64.b64decode(image_base64)))
 
 
+# ---------------------------------------------------
+# PROMPT OLUŞTURMA FONKSİYONLARI
+# ---------------------------------------------------
 def build_text_prompt(product, audience, platform, tone):
     return f"""
 Sen bir dijital pazarlama uzmanısın.
@@ -66,30 +64,29 @@ Aşağıdaki formatta reklam içeriği oluştur:
 """
 
 
-def build_image_prompt_prompt(product, audience, platform, tone):
+def build_image_prompt(product, audience, platform, tone):
     return f"""
-Sen üst düzey bir reklam tasarımcısın.
+Sen üst düzey bir reklam tasarımcısısın.
 
 Ürün: {product}
 Hedef Kitle: {audience}
 Platform: {platform}
 Üslup: {tone}
 
-Profesyonel bir reklam görseli için aşağıdaki formatta detaylı bir tasarım promptu oluştur:
+Profesyonel bir reklam görseli için aşağıdaki formatta detaylı bir prompt oluştur:
 
 1) Kompozisyon
 2) Arka plan
 3) Işıklandırma
 4) Kamera açısı
 5) Renk paleti
-6) Midjourney, DALL·E, SDXL için tek satırlık İngilizce prompt
+6) Midjourney / DALL·E / SDXL için tek satırlık İngilizce prompt
 """
 
 
-# ============================================================
-# Streamlit Arayüzü
-# ============================================================
-
+# ---------------------------------------------------
+# STREAMLIT ARAYÜZÜ
+# ---------------------------------------------------
 st.title("🎯 AdGen – AI Reklam Metni + Prompt + Gerçek Görsel Üretici")
 
 product = st.text_input("🛍 Ürün / Hizmet:")
@@ -98,66 +95,61 @@ platform = st.selectbox("📱 Platform:", ["Instagram", "TikTok", "LinkedIn", "F
 tone = st.selectbox("🎨 Üslup:", ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"])
 
 
-# ============================================================
-# Reklam Metni Üretimi (Gemini)
-# ============================================================
-
+# ---------------------------------------------------
+# 1) METİN ÜRETİMİ (GEMINI)
+# ---------------------------------------------------
 if st.button("📝 Reklam Metni Üret"):
     if not product or not audience:
-        st.warning("⚠ Lütfen ürün ve hedef kitleyi doldurun.")
+        st.warning("⚠ Lütfen tüm alanları doldurun.")
     else:
         with st.spinner("Metin üretiliyor..."):
             prompt = build_text_prompt(product, audience, platform, tone)
             response = text_model.generate_content(prompt)
-            st.subheader("📌 Üretilen Reklam Metni")
+            st.subheader("📌 Reklam Metni")
             st.write(response.text)
 
 
-# ============================================================
-# Görsel PROMPT üretimi (Gemini)
-# ============================================================
-
-if st.button("🎨 Görsel Prompt (Gemini) Üret"):
+# ---------------------------------------------------
+# 2) GÖRSEL PROMPT ÜRETİMİ (GEMINI)
+# ---------------------------------------------------
+if st.button("🎨 Görsel Tasarım Promptu (Gemini)"):
     if not product or not audience:
-        st.warning("⚠ Lütfen ürün ve hedef kitleyi doldurun.")
+        st.warning("⚠ Lütfen tüm alanları doldurun.")
     else:
-        with st.spinner("Görsel prompt üretiliyor..."):
-            prompt = build_image_prompt_prompt(product, audience, platform, tone)
+        with st.spinner("Prompt üretiliyor..."):
+            prompt = build_image_prompt(product, audience, platform, tone)
             response = text_model.generate_content(prompt)
-            st.subheader("🖼 Görsel Tasarım Fikri / Prompt")
+            st.subheader("🖼 Görsel Tasarım Fikri")
             st.write(response.text)
 
 
-# ============================================================
-# Gerçek Görsel Üretimi (HuggingFace SDXL)
-# ============================================================
-
+# ---------------------------------------------------
+# 3) GERÇEK GÖRSEL ÜRETİMİ (STABILITY AI)
+# ---------------------------------------------------
 if st.button("🖼 Gerçek Reklam Görseli Üret (AI)"):
     if not product or not audience:
-        st.warning("⚠ Lütfen ürün ve hedef kitleyi doldurun.")
+        st.warning("⚠ Lütfen tüm alanları doldurun.")
     else:
         sd_prompt = f"""
-        {product}, {audience} için profesyonel bir reklam fotoğrafı.
-        Clean background, modern aesthetic, ultra high detail,
-        sharp focus, 8k, studio lighting, realistic, product shot.
+        {product} için {audience} kitlesine uygun profesyonel bir reklam fotoğrafı.
+        Studio lighting, ultra realistic, 4K, product shot, clean background.
         """
 
-        with st.spinner("Gerçek AI görseli üretiliyor..."):
+        with st.spinner("Görsel üretiliyor..."):
             try:
-                img = generate_image_hf(sd_prompt)
-
-                st.subheader("🖼 AI ile Üretilen Reklam Görseli")
+                img = generate_image_stability(sd_prompt)
+                st.subheader("🖼 AI Üretilen Reklam Görseli")
                 st.image(img, use_column_width=True)
 
-                # İndirme
+                # İndirme butonu
                 buffer = BytesIO()
                 img.save(buffer, format="PNG")
                 st.download_button(
-                    label="📥 Görseli İndir",
-                    data=buffer.getvalue(),
-                    file_name="adgen_reklam_gorsel.png",
-                    mime="image/png"
+                    "📥 Görseli İndir",
+                    buffer.getvalue(),
+                    "adgen_gorsel.png",
+                    "image/png"
                 )
 
             except Exception as e:
-                st.error(f"Görsel üretilirken hata oluştu:\n{e}")
+                st.error(f"Görsel üretimi hatası: {e}")
