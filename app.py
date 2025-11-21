@@ -1,86 +1,32 @@
 import streamlit as st
 import google.generativeai as genai
-from io import BytesIO
-from PIL import Image
 
 # -------------------------
-# GEMINI API KURULUMU
+# GEMINI API KEY (Streamlit Secrets)
 # -------------------------
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
+# Metin modeli
+model = genai.GenerativeModel("models/gemini-pro-latest")
 
 # -------------------------
-# GÖRSEL ÜRETME FONKSİYONU
+# ARAYÜZ
 # -------------------------
-def generate_image_gemini(prompt):
-    genai.GenerativeModel("gemini-1.0-pro")
-    result = model.generate_images(
-        prompt=prompt,
-        n=1,
-        size="1024x1024"
-    )
-    return result.images[0]
+st.title("✍️ AdGen – AI Reklam Metni Üretici")
 
+prompt = st.text_area(
+    "Reklam metni oluşturmak için bir açıklama girin:",
+    height=180,
+    placeholder="Örn: Doğal zeytinyağlı sabun için Instagram reklam metni yaz..."
+)
 
-# -------------------------
-# UYGULAMA ARAYÜZÜ
-# -------------------------
-st.title("AdGen - Reklam İçerik Üretici")
-
-product = st.text_input("Ürün/Hizmet:")
-audience = st.text_input("Hedef Kitle:")
-platform = st.selectbox("Platform", ["Instagram", "TikTok", "LinkedIn", "Facebook"])
-tone = st.selectbox("Üslup", ["Eğlenceli", "Profesyonel", "Samimi"])
-
-
-# =========================
-# 1️⃣ METİN ÜRETME
-# =========================
-if st.button("Reklam İçeriği Üret"):
-
-    prompt = f"""
-    Ürün: {product}
-    Hedef kitle: {audience}
-    Platform: {platform}
-    Üslup: {tone}
-
-    Bana bu bilgilerle 3 farklı reklam metni, 1 başlık ve 1 görsel fikri üret.
-    """
-
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(prompt)
-
-    st.subheader("📝 Üretilen İçerikler")
-    st.write(response.text)
-
-
-
-# =========================
-# 2️⃣ GÖRSEL ÜRETME
-# =========================
-if st.button("Görsel Oluştur"):
-
-    if not product or not audience:
-        st.warning("Lütfen ürün ve hedef kitle giriniz.")
+if st.button("Metin Üret"):
+    if not prompt.strip():
+        st.warning("⚠ Lütfen bir açıklama girin!")
     else:
-        with st.spinner("Görsel üretiliyor..."):
-
-            image_prompt = f"{product} için {audience} hedef kitlesine uygun profesyonel reklam görseli"
-
-            try:
-                img = generate_image_gemini(image_prompt)
-                st.image(img, caption="Üretilen Görsel", use_column_width=True)
-
-                # İndirilebilir hale getirme
-                buffer = BytesIO()
-                Image.open(BytesIO(img)).save(buffer, format="PNG")
-
-                st.download_button(
-                    label="Görseli İndir",
-                    data=buffer.getvalue(),
-                    file_name="adgen_gemini_visual.png",
-                    mime="image/png"
-                )
-
-            except Exception as e:
-                st.error(f"Görsel üretilirken hata oluştu: {e}")
+        try:
+            response = model.generate_content(prompt)
+            st.subheader("📌 Üretilen Metin:")
+            st.write(response.text)
+        except Exception as e:
+            st.error(f"Hata oluştu: {str(e)}")
