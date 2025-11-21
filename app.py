@@ -13,7 +13,8 @@ from PIL import Image
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 # HuggingFace API URL
-HF_API_URL = "https://router.huggingface.co/models/runwayml/stable-diffusion-v1-5"
+HF_API_URL = "https://router.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+
 
 
 # ============================================================
