@@ -13,7 +13,7 @@ genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 # GÖRSEL ÜRETME FONKSİYONU
 # -------------------------
 def generate_image_gemini(prompt):
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    genai.GenerativeModel("gemini-1.0-pro")
     result = model.generate_images(
         prompt=prompt,
         n=1,
