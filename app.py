@@ -13,11 +13,9 @@ genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 text_model = genai.GenerativeModel("models/gemini-pro-latest")
 
 # HuggingFace ücretsiz görsel modeli
-HF_API_URL = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
-
+HF_API_URL = "https://router.huggingface.co/models/runwayml/stable-diffusion-v1-5"
 
 def generate_image_hf(prompt):
-    """HuggingFace'te ücretsiz gerçek görsel üretir."""
     response = requests.post(
         HF_API_URL,
         headers={"Content-Type": "application/json"},
