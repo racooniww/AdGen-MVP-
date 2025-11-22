@@ -343,7 +343,7 @@ Requirements:
 STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 
 def generate_image_stability(prompt):
-    url = "https://api.stability.ai/v2beta/stable-image/generate/sdxl"
+    url = "https://api.stability.ai/v2beta/stable-image/generate/core"
 
     headers = {
         "Authorization": f"Bearer {STABILITY_API_KEY}"
@@ -361,8 +361,7 @@ def generate_image_stability(prompt):
     if response.status_code != 200:
         raise ValueError(f"Stability API Error: {response.text}")
 
-    img_bytes = response.content
-    return Image.open(BytesIO(img_bytes))
+    return Image.open(BytesIO(response.content))
 
 # ---------------------------------------------------
 # COMPETITOR SCAN (TR / EN)
