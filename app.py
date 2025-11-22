@@ -1,9 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-import requests
-import base64
-from io import BytesIO
-from PIL import Image
 
 # ---------------------------------------------------
 # PAGE CONFIG
@@ -15,12 +11,12 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------
-# MULTI-LANGUAGE SYSTEM (TR + EN + DUAL)
+# MULTI-LANGUAGE TEXTS
 # ---------------------------------------------------
 LANG = {
     "tr": {
         "title": "AdGen – Yapay Zeka Reklam Üretici",
-        "subtitle": "KOBİ'ler ve markalar için metin, görsel ve rakip analizi.",
+        "subtitle": "KOBİ'ler ve markalar için metin, görsel fikri ve rakip analizi.",
         "language": "Dil",
         "product": "Ürün / Hizmet",
         "audience": "Hedef Kitle",
@@ -30,14 +26,20 @@ LANG = {
         "generate_prompt": "Görsel Tasarım Promptu",
         "generate_image": "AI Görseli Üret",
         "competitor_scan": "Rakip Analizi",
-        "competitor_placeholder": "Rakip analizi için ürün adı...",
+        "competitor_placeholder": "Rakip analizi için ürün / kategori adı...",
         "output_competitor": "Rakip Analizi Sonuçları",
         "warning_fill": "⚠ Lütfen gerekli alanları doldurun.",
-        "down_img": "Görseli İndir"
+        "down_img": "Görseli İndir",
+        "btn_scan": "Rakipleri Tara",
+        "adcopy_spinner": "Reklam metni üretiliyor...",
+        "visual_spinner": "Görsel tasarım promptu hazırlanıyor...",
+        "comp_scan_spinner": "Web üzerinden rakipler analiz ediliyor...",
+        "comp_analysis_spinner": "Rakip analizi hazırlanıyor...",
+        "image_info": "Görsel üretim modülü şu an devre dışı. İstenirse Stability / HuggingFace entegrasyonu yeniden eklenebilir."
     },
     "en": {
         "title": "AdGen – AI Advertising Generator",
-        "subtitle": "Text, visual and competitor intelligence for SMEs and brands.",
+        "subtitle": "Text, visual concepts and competitor intelligence for SMEs and brands.",
         "language": "Language",
         "product": "Product / Service",
         "audience": "Target Audience",
@@ -47,40 +49,52 @@ LANG = {
         "generate_prompt": "Generate Visual Prompt",
         "generate_image": "Generate AI Image",
         "competitor_scan": "Competitor Scan",
-        "competitor_placeholder": "Product name for competitor analysis...",
+        "competitor_placeholder": "Product / category name for competitor analysis...",
         "output_competitor": "Competitor Analysis Result",
         "warning_fill": "⚠ Please fill all required fields.",
-        "down_img": "Download Image"
+        "down_img": "Download Image",
+        "btn_scan": "Scan Competitors",
+        "adcopy_spinner": "Generating ad copy...",
+        "visual_spinner": "Generating visual design prompt...",
+        "comp_scan_spinner": "Scanning competitors using the web...",
+        "comp_analysis_spinner": "Preparing competitor analysis...",
+        "image_info": "Image generation module is currently disabled. It can be re-enabled with Stability / HuggingFace integration."
     }
 }
 
 # ---------------------------------------------------
 # LANGUAGE SELECTOR
 # ---------------------------------------------------
-ui_language = st.selectbox("Language", ["Türkçe", "English", "Dual (TR + EN)"])
+ui_language = st.selectbox(
+    "Language / Dil",
+    ["Türkçe", "English", "Dual (TR + EN Output)"]
+)
 
 if ui_language == "Türkçe":
     L = LANG["tr"]
-    output_mode = "tr"
+    output_mode = "tr"   # metin çıktı dili
+    comp_lang = "tr"
 elif ui_language == "English":
     L = LANG["en"]
     output_mode = "en"
+    comp_lang = "en"
 else:
+    # UI Türkçe, içerik hem TR hem EN
     L = LANG["tr"]
     output_mode = "dual"
-
+    comp_lang = "tr"   # rakip analizi Türkçe olsun, istersen "en" yapabiliriz
 
 # ---------------------------------------------------
-# GEMINI CONFIG (Your API Key)
+# GEMINI CONFIG
 # ---------------------------------------------------
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# We will use Gemini Pro (web-browsing enabled)
-model = genai.GenerativeModel("models/gemini-pro")
+# Tek model: Gemini 2.5 Flash (metin + rekabet analizi için)
+text_model = genai.GenerativeModel("models/gemini-2.5-flash")
 
 
 # ---------------------------------------------------
-# CUSTOM UI CSS (Modern Clean Design)
+# CUSTOM CSS
 # ---------------------------------------------------
 def inject_custom_css():
     st.markdown(
@@ -88,7 +102,7 @@ def inject_custom_css():
         <style>
         .stApp {
             background: #f6f8fc;
-            font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
         }
         .adgen-header {
             text-align: center;
@@ -102,7 +116,7 @@ def inject_custom_css():
         .adgen-subtitle {
             font-size: 1rem;
             color: #4b5563;
-            margin-top: -7px;
+            margin-top: -6px;
         }
         .field-label {
             font-size: 0.9rem;
@@ -110,25 +124,39 @@ def inject_custom_css():
             color: #374151;
             margin-bottom: 0.25rem;
         }
-        .button-row button {
+        .stButton>button {
             border-radius: 999px !important;
             padding: 0.55rem 1.2rem !important;
-            font-weight: 600;
+            font-weight: 600 !important;
+            border: 1px solid #d1d5db !important;
+            background: white !important;
+            color: #111827 !important;
+        }
+        .stButton>button:hover {
+            border-color: #6366f1 !important;
+        }
+        .output-box {
+            margin-top: 1.2rem;
+            padding: 1rem 1.1rem;
+            border-radius: 0.9rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
 
+
 inject_custom_css()
+
 # ---------------------------------------------------
-# SAFE TEXT EXTRACTOR (Gemini bazen farklı format döndürüyor)
+# SAFE TEXT EXTRACTION FROM GEMINI
 # ---------------------------------------------------
 def extract_text_safe(response):
     if hasattr(response, "text") and response.text:
         return response.text.strip()
 
-    # candidates -> parts formatı
     if hasattr(response, "candidates") and response.candidates:
         cand = response.candidates[0]
         if hasattr(cand, "content") and hasattr(cand.content, "parts"):
@@ -141,108 +169,10 @@ def extract_text_safe(response):
 
 
 # ---------------------------------------------------
-# COMPETITOR SEARCH (Gemini Web Browsing)
+# AD COPY PROMPT BUILDER (TR / EN / DUAL)
 # ---------------------------------------------------
-def competitor_web_search(product_name, output_mode):
-    """
-    Gemini Pro web browsing kullanarak internetteki rakip marka verilerini toplar.
-    """
-    query = f"""
-    Search the web for competing brands, ads, slogans and marketing messages related to:
-    '{product_name}'.
-
-    Return:
-    - Top competing brands
-    - Example ad slogans found online
-    - Common keywords observed in ads
-    - Any notable advertising styles
-    - Web sources summary
-
-    IMPORTANT:
-    - Output MUST be in English only (this is a raw data step).
-    """
-
-    response = model.generate_content(query)
-    return extract_text_safe(response)
-
-
-# ---------------------------------------------------
-# COMPETITOR ANALYSIS (AI-driven marketing insights)
-# ---------------------------------------------------
-def competitor_analysis(raw_data, product_name, output_mode):
-    """
-    Toplanan web verisini dil seçimine göre analiz eder.
-    TR / EN / Dual çıktı üretir.
-    """
-
-    # ---------------------------------------------------
-    # TR Output
-    # ---------------------------------------------------
-    analysis_tr = f"""
-Aşağıdaki web verisine dayanarak kapsamlı bir rakip analizi oluştur:
-
-VERİ:
-{raw_data}
-
-ÇIKTIDA ŞUNLAR OLSUN (TÜRKÇE):
-1) Rakipler listesi
-2) Rakiplerin kullandığı en güçlü 10 slogan
-3) En çok geçen reklam kelimeleri
-4) Reklam tonu analizi (örnek cümlelerle)
-5) Rakiplerin güçlü + zayıf yönleri
-6) Pazardaki boşluklar (market gaps)
-7) '{product_name}' için 3 farklılaşma stratejisi
-"""
-
-    # ---------------------------------------------------
-    # EN Output
-    # ---------------------------------------------------
-    analysis_en = f"""
-Based on the following web data, generate a full competitor analysis:
-
-DATA:
-{raw_data}
-
-OUTPUT SECTIONS (ENGLISH):
-1) List of competitors
-2) Top 10 slogans competitors use
-3) Most common advertising keywords
-4) Tone of ads (with example lines)
-5) Strengths + weaknesses of competitors
-6) Market gaps
-7) 3 differentiation strategies for '{product_name}'
-"""
-
-    result_tr = model.generate_content(analysis_tr)
-    result_en = model.generate_content(analysis_en)
-
-    txt_tr = extract_text_safe(result_tr)
-    txt_en = extract_text_safe(result_en)
-
-    # ---------------------------------------------------
-    # OUTPUT MODE HANDLING
-    # ---------------------------------------------------
-    if output_mode == "tr":
-        return f"🇹🇷 **Türkçe Rekabet Analizi**\n\n{txt_tr}"
-
-    elif output_mode == "en":
-        return f"🇬🇧 **English Competitor Analysis**\n\n{txt_en}"
-
-    else:
-        return f"""
-🇹🇷 **Türkçe Rekabet Analizi**  
-{txt_tr}
-
----
-
-🇬🇧 **English Competitor Analysis**  
-{txt_en}
-"""
-# ---------------------------------------------------
-# AD TEXT & VISUAL PROMPT HELPERS (MULTILINGUAL)
-# ---------------------------------------------------
-def build_ad_text_prompt(product, audience, platform, tone, output_mode):
-    if output_mode == "tr":
+def build_ad_text_prompt(product, audience, platform, tone, mode):
+    if mode == "tr":
         return f"""
 Sen bir dijital pazarlama uzmanısın.
 
@@ -255,10 +185,10 @@ Aşağıdaki formatta reklam içeriği oluştur:
 
 - 3 kısa başlık
 - 2 farklı reklam metni (A/B testi için)
-- Kampanya sloganı
+- 1 kampanya sloganı
 - 8 hashtag
 """
-    if output_mode == "en":
+    if mode == "en":
         return f"""
 You are a senior digital marketing expert.
 
@@ -267,18 +197,18 @@ Target audience: {audience}
 Platform: {platform}
 Tone: {tone}
 
-Create the following:
+Generate:
 
 - 3 short headlines
 - 2 different ad copies (for A/B testing)
 - 1 campaign slogan
 - 8 hashtags
 """
-    # dual
+    # dual (TR + EN)
     return f"""
 You are a bilingual senior digital marketing specialist.
 
-Generate TWO VERSIONS of the same ad content:
+Generate TWO versions of the same ad content.
 
 =========================
 🇹🇷 TURKISH VERSION
@@ -291,7 +221,7 @@ Platform: {platform}
 
 - 3 kısa başlık
 - 2 farklı reklam metni
-- Kampanya sloganı
+- 1 kampanya sloganı
 - 8 hashtag
 
 =========================
@@ -308,14 +238,15 @@ Tone: {tone}
 - 1 campaign slogan
 - 8 hashtags
 
-OUTPUT FORMAT:
-Write both languages clearly separated.
-Do NOT mix languages.
+Keep Turkish and English clearly separated.
 """
 
 
-def build_visual_prompt(product, audience, platform, tone, output_mode):
-    if output_mode == "tr":
+# ---------------------------------------------------
+# VISUAL DESIGN PROMPT BUILDER (TR / EN / DUAL)
+# ---------------------------------------------------
+def build_visual_prompt(product, audience, platform, tone, mode):
+    if mode == "tr":
         return f"""
 Sen bir reklam görseli tasarım uzmanısın.
 
@@ -331,9 +262,9 @@ Reklam görseli için aşağıdaki başlıklara göre detaylı bir tasarım aç�
 3) Işıklandırma (yumuşak, sert, dramatik vs.)
 4) Renk paleti
 5) Kamera açısı (yakın plan, üstten, göz hizası vb.)
-6) Dilersen Stable Diffusion / SDXL için tek satırlık İngilizce prompt örneği de ver.
+6) İsteğe bağlı: Stable Diffusion / SDXL için tek satırlık İngilizce prompt örneği.
 """
-    if output_mode == "en":
+    if mode == "en":
         return f"""
 You are an advertising visual designer.
 
@@ -342,20 +273,20 @@ Target audience: {audience}
 Platform: {platform}
 Tone: {tone}
 
-Describe a detailed visual design for an ad under these sections:
+Describe a detailed visual design for an ad:
 
 1) Composition (where the product is placed)
 2) Background (environment, texture, scene)
-3) Lighting (soft, dramatic, studio, natural, etc.)
+3) Lighting (soft, studio, dramatic, natural)
 4) Color palette
-5) Camera angle (close-up, eye level, top view, etc.)
-6) Optionally, provide a single-line SDXL / Stable Diffusion prompt.
+5) Camera angle (close-up, eye level, top view)
+6) Optional: a single-line SDXL / Stable Diffusion prompt.
 """
     # dual
     return f"""
 You are a bilingual advertising visual designer.
 
-Create a visual concept in TWO SECTIONS:
+Create a visual concept in TWO SECTIONS.
 
 =========================
 🇹🇷 TÜRKÇE AÇIKLAMA
@@ -391,16 +322,65 @@ Tone: {tone}
 
 
 # ---------------------------------------------------
-# (OPSİYONEL) IMAGE GENERATION PLACEHOLDER
-# Burada Stability veya başka bir görsel API ile entegrasyon yapılabilir.
-# Şimdilik sadece "yakında" mesajı göstereceğiz.
+# COMPETITOR SCAN (NO RAW URLS, STRATEGIC SUMMARY)
 # ---------------------------------------------------
+def scan_competitors(product_name, lang="tr"):
+    """
+    Competitive intelligence using Gemini 2.5 Flash.
+    Burada gerçek web bilgisini kullanarak özetleyici / çıkarımsal bir analiz yapmasını istiyoruz.
+    """
+
+    if lang == "tr":
+        prompt = f"""
+Sen bir rekabet analizi ve pazarlama stratejisi uzmanısın.
+
+Görevin:
+- İnternetten '{product_name}' ile ilgili markalar, rakipler ve reklam örnekleri hakkında genel bir fikir edinmek
+- Web sonuçlarını birebir listelemek yerine, genelleştirilmiş çıkarımlar yaparak özetlemek
+
+ÇIKTI BÖLÜMLERİ (TAMAMI TÜRKÇE OLSUN):
+
+1) Öne çıkan rakip marka türleri
+2) Rakiplerin sıklıkla kullandığı slogan ve mesaj temaları
+3) Reklamlarda en çok vurgulanan özellikler (örnek cümlelerle)
+4) Reklam tonu (samimi, premium, eğlenceli, ciddi vb.) ve örnekler
+5) Sektörde fark edilen temel trendler
+6) Pazarda görülen boşluklar (market gaps)
+7) '{product_name}' için 3 net farklılaşma / konumlandırma önerisi (USP)
+
+URL veya spesifik site ismi verme, özet analiz yap.
+"""
+    else:
+        prompt = f"""
+You are a competitive intelligence and marketing strategy expert.
+
+Your task:
+- Reason about the web for brands, competitors and ad examples related to '{product_name}'
+- Instead of listing raw URLs, provide synthesized insights and patterns
+
+OUTPUT SECTIONS (ENGLISH):
+
+1) Types of key competitor brands
+2) Common slogan and message themes competitors use
+3) Most emphasized features in ads (with example lines)
+4) Overall ad tone (friendly, premium, playful, serious) + examples
+5) Major trends observed in the category
+6) Market gaps and underserved needs
+7) 3 clear differentiation / positioning strategies (USP) for '{product_name}'
+
+Do NOT output raw URLs. Provide a concise but insightful analysis.
+"""
+
+    try:
+        response = text_model.generate_content(prompt)
+        return extract_text_safe(response)
+    except Exception as e:
+        return f"Competitor scan error: {e}"
 
 
 # ---------------------------------------------------
-# MAIN UI
+# UI – HEADER
 # ---------------------------------------------------
-# Başlık
 st.markdown(
     f"""
     <div class="adgen-header">
@@ -411,7 +391,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Ana kart: Reklam Metni + Görsel Prompt
+# ---------------------------------------------------
+# MAIN CARD – AD TEXT + VISUAL PROMPT
+# ---------------------------------------------------
 with st.container():
     st.markdown('<div class="adgen-card">', unsafe_allow_html=True)
 
@@ -422,12 +404,12 @@ with st.container():
         product = st.text_input(
             "product",
             label_visibility="collapsed",
-            placeholder="Handmade soap" if ui_language == "English" else "Örn: El yapımı sabun"
+            placeholder="Handmade soap" if ui_language == "English" else "Örn: el yapımı sabun"
         )
 
         st.markdown(f'<div class="field-label">{L["platform"]}</div>', unsafe_allow_html=True)
         platform = st.selectbox(
-            "platform_sel",
+            "platform",
             ["Instagram", "TikTok", "LinkedIn", "Facebook"],
             label_visibility="collapsed"
         )
@@ -458,7 +440,6 @@ with st.container():
 
     st.markdown("---")
 
-    # Butonlar
     c1, c2, c3 = st.columns(3)
     with c1:
         btn_text = st.button(L["generate_text"])
@@ -467,51 +448,43 @@ with st.container():
     with c3:
         btn_image = st.button(L["generate_image"])
 
-    # Reklam metni üretimi
+    # Ad copy
     if btn_text:
         if not product or not audience:
             st.warning(L["warning_fill"])
         else:
-            with st.spinner("Metin üretiliyor..." if ui_language != "English" else "Generating ad copy..."):
+            with st.spinner(L["adcopy_spinner"]):
                 try:
-                    prompt_text = build_ad_text_prompt(product, audience, platform, tone, output_mode)
-                    res = model.generate_content(prompt_text)
-                    txt = extract_text_safe(res)
-
+                    p = build_ad_text_prompt(product, audience, platform, tone, output_mode)
+                    r = text_model.generate_content(p)
+                    txt = extract_text_safe(r)
                     st.markdown('<div class="output-box">', unsafe_allow_html=True)
                     st.subheader(L["generate_text"])
                     st.write(txt)
                     st.markdown('</div>', unsafe_allow_html=True)
                 except Exception as e:
-                    st.error(f"Hata: {e}")
+                    st.error(f"Hata / Error: {e}")
 
-    # Görsel tasarım promptu
+    # Visual prompt
     if btn_visual:
         if not product or not audience:
             st.warning(L["warning_fill"])
         else:
-            with st.spinner("Görsel tasarım fikri hazırlanıyor..." if ui_language != "English"
-                            else "Generating visual design prompt..."):
+            with st.spinner(L["visual_spinner"]):
                 try:
-                    prompt_vis = build_visual_prompt(product, audience, platform, tone, output_mode)
-                    res = model.generate_content(prompt_vis)
-                    txt = extract_text_safe(res)
-
+                    p = build_visual_prompt(product, audience, platform, tone, output_mode)
+                    r = text_model.generate_content(p)
+                    txt = extract_text_safe(r)
                     st.markdown('<div class="output-box">', unsafe_allow_html=True)
                     st.subheader(L["generate_prompt"])
                     st.write(txt)
                     st.markdown('</div>', unsafe_allow_html=True)
                 except Exception as e:
-                    st.error(f"Hata: {e}")
+                    st.error(f"Hata / Error: {e}")
 
-    # Görsel üretimi (şimdilik placeholder)
+    # Image placeholder
     if btn_image:
-        st.info(
-            "Görsel üretim modülü şu an için devre dışı. "
-            "Stability / HuggingFace entegrasyonu ile tekrar aktifleştirilebilir."
-            if ui_language != "English"
-            else "Image generation module is currently disabled. It can be re-enabled with Stability / HuggingFace integration."
-        )
+        st.info(L["image_info"])
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -527,40 +500,31 @@ with st.container():
         unsafe_allow_html=True
     )
 
-    product_comp = st.text_input(
-        "competitor_product",
+    competitor_name = st.text_input(
+        "competitor_name",
         label_visibility="collapsed",
         placeholder=L["competitor_placeholder"]
     )
 
-    btn_comp = st.button("🔍 " + (L["competitor_scan"] if ui_language != "English" else "Scan Competitors"))
+    btn_comp = st.button("🔍 " + L["btn_scan"])
 
     if btn_comp:
-        if not product_comp:
+        if not competitor_name:
             st.warning(L["warning_fill"])
         else:
-            with st.spinner("Web'den rakipler taranıyor..." if ui_language != "English"
-                            else "Scanning competitors on the web..."):
-                try:
-                    raw = competitor_web_search(product_comp, output_mode)
-                except Exception as e:
-                    st.error(f"Web taraması sırasında hata oluştu: {e}")
-                    raw = ""
+            with st.spinner(L["comp_scan_spinner"]):
+                raw = scan_competitors(competitor_name, comp_lang)
 
             if not raw:
-                st.error("Web sonuçları alınamadı, lütfen daha genel bir ürün adı deneyin."
-                         if ui_language != "English"
-                         else "Could not retrieve web results, please try a broader product name.")
+                st.error(
+                    "Web sonuçları alınamadı, lütfen daha genel bir ürün / kategori adı deneyin."
+                    if comp_lang == "tr"
+                    else "Could not retrieve useful insights, please try a broader product/category."
+                )
             else:
-                with st.spinner("Rakip analizi hazırlanıyor..." if ui_language != "English"
-                                else "Preparing competitor analysis..."):
-                    try:
-                        comp_result = competitor_analysis(raw, product_comp, output_mode)
-                        st.markdown('<div class="output-box">', unsafe_allow_html=True)
-                        st.subheader(L["output_competitor"])
-                        st.write(comp_result)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"Analiz sırasında hata oluştu: {e}")
+                st.markdown('<div class="output-box">', unsafe_allow_html=True)
+                st.subheader(L["output_competitor"])
+                st.write(raw)
+                st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
