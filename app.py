@@ -42,17 +42,6 @@ def inject_custom_css():
             margin-top: 4px;
         }
 
-        /* Ana kart */
-        .adgen-card {
-            background: #ffffff;
-            padding: 1.9rem 2.1rem;
-            border-radius: 1.1rem;
-            max-width: 900px;
-            margin: 0 auto 2rem auto;
-            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-            border: 1px solid rgba(226, 232, 240, 0.9);
-        }
-
         /* Input label */
         .field-label {
             font-size: 0.90rem;
@@ -374,7 +363,7 @@ with st.container():
 
     # Dil seçici
     language = st.selectbox(
-        "🌐 Language / Dil",
+        " Language / Dil",
         ["Türkçe + English (Dual Output)", "Türkçe", "English"]
     )
 
