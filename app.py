@@ -346,7 +346,8 @@ def generate_image_stability(prompt):
     url = "https://api.stability.ai/v2beta/stable-image/generate/core"
 
     headers = {
-        "Authorization": f"Bearer {STABILITY_API_KEY}"
+        "Authorization": f"Bearer {STABILITY_API_KEY}",
+        "Accept": "image/png"   # 🔥 Stability yeni API bunu ZORUNLU istiyor
     }
 
     files = {
@@ -362,6 +363,7 @@ def generate_image_stability(prompt):
         raise ValueError(f"Stability API Error: {response.text}")
 
     return Image.open(BytesIO(response.content))
+
 
 # ---------------------------------------------------
 # COMPETITOR SCAN (TR / EN)
