@@ -51,15 +51,20 @@ def inject_custom_css():
             margin-bottom: 0.2rem;
         }
 
-        /* Butonlar */
         .stButton>button {
-            border-radius: 999px;
-            padding: 0.5rem 1.3rem;
-            border: none;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
+    border-radius: 14px;
+    padding: 0.55rem 1.4rem;
+    border: 2px solid rgba(255, 94, 0, 0.6);
+    background: linear-gradient(135deg, #fff, #f8fafc);
+    font-weight: 600;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+}
+.stButton>button:hover {
+    border-color: #fb923c;
+    transform: translateY(-2px);
+}
+
 
         .btn-primary {
             background: linear-gradient(135deg, #6366f1, #3b82f6);
