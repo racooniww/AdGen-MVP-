@@ -347,7 +347,7 @@ def generate_image_stability(prompt):
 
     headers = {
         "Authorization": f"Bearer {STABILITY_API_KEY}",
-        "Accept": "image/png"   # 🔥 Stability yeni API bunu ZORUNLU istiyor
+        "Accept": "image/*"   # 🔥 Stability'nin beklediği DOĞRU ACCEPT HEADER!
     }
 
     files = {
@@ -362,6 +362,7 @@ def generate_image_stability(prompt):
     if response.status_code != 200:
         raise ValueError(f"Stability API Error: {response.text}")
 
+    # API RAW BYTE döndürüyor → direkt PNG
     return Image.open(BytesIO(response.content))
 
 
