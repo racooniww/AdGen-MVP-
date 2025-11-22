@@ -102,23 +102,24 @@ def inject_custom_css():
 
 
 # ---------------------------------------------------
-# Streamlit Secrets
+# API KEY / MODELLER
 # ---------------------------------------------------
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 
-# Stability SDXL endpoint
-STABILITY_URL = "https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image"
+STABILITY_URL = (
+    "https://api.stability.ai/v1/generation/"
+    "stable-diffusion-xl-1024-v1-0/text-to-image"
+)
 
-# Gemini text model
 text_model = genai.GenerativeModel("models/gemini-pro-latest")
 
 
 # ---------------------------------------------------
-# SAFE TEXT EXTRACTION (Gemini empty response fix)
+# GEMINI SAFE TEXT EXTRACTION
 # ---------------------------------------------------
 def extract_text_safe(response):
-    """Gemini bazen response.text verir, bazen candidates içinde döndürür. Güvenli şekilde metni çıkarır."""
+    """Gemini bazen response.text, bazen candidates döndürüyor; güvenli şekilde metni çıkar."""
     if hasattr(response, "text") and response.text:
         return response.text.strip()
 
@@ -205,47 +206,46 @@ Reklam görseli için detaylı tasarım promptu oluştur:
 
 
 # ---------------------------------------------------
-# TURKISH → HIGH-QUALITY ENGLISH PROMPT
+# TR → EN YÜKSEK KALİTE GÖRSEL PROMPT
 # ---------------------------------------------------
 def translate_to_english_for_image(product, audience, platform, tone):
+    base_prompt = f"""
+You are an advertising image prompt generator.
 
-    prompt = f"""
-You are a senior advertising image prompt engineer.
-
-Translate the following Turkish inputs into a high-quality, professional, 100% ENGLISH prompt
-for creating an advertisement image using SDXL:
+Convert the following Turkish inputs into a fully detailed ENGLISH prompt for SDXL
+(Stable Diffusion XL) advertising image generation:
 
 Product: {product}
-Target Audience: {audience}
+Audience: {audience}
 Platform: {platform}
 Tone: {tone}
 
-REQUIREMENTS:
-- Output MUST BE English only.
-- Describe composition, lighting, background, camera angle, style, mood.
-- End with ONE single SDXL-ready line.
-- DO NOT include Turkish words.
+Write ONE single, detailed SDXL image prompt describing:
+- Scene & composition
+- Background / environment
+- Colors & mood
+- Lighting
+- Camera style / angle
+
+Rules:
+- OUTPUT MUST BE ONLY IN ENGLISH.
+- Do NOT include any Turkish words.
+- It should look like a real ad photo prompt.
 """
 
-    response = text_model.generate_content(prompt)
-    english = extract_text_safe(response)
+    response = text_model.generate_content(base_prompt)
+    english = extract_text_safe(response).strip()
 
-    # Retry if empty
-    if not english or len(english) < 5:
-        retry = text_model.generate_content(f"""
-Write ONLY one English SDXL prompt describing a professional advertisement photo of:
-Product: {product}
-Audience: {audience}
-""")
-        english = extract_text_safe(retry)
-
-    # Final fallback
-    if not english or len(english) < 5:
+    # Eğer hâlâ kısa/boşsa → fallback
+    if not english or len(english) < 10:
         english = (
-            f"Professional advertisement photo of {product}, "
-            f"targeted to {audience}, ultra realistic, studio lighting, 4K product shot."
+            f"Ultra realistic advertisement photo of {product}, targeted to {audience}, "
+            f"soft studio lighting, cinematic background, product-focused composition, "
+            f"high detail, 4K."
         )
 
+    # Stability limiti: 1–2000 karakter
+    english = english[:1900]
     return english
 
 
@@ -269,22 +269,26 @@ st.markdown(
 with st.container():
     st.markdown('<div class="adgen-card">', unsafe_allow_html=True)
 
-    # Üst form alanı
+    # Üst form alanı (ARTIK fazladan beyaz kutu yok)
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown('<div class="field-label">Ürün / Hizmet</div>', unsafe_allow_html=True)
-        product = st.text_input(label="", placeholder="Örn: El yapımı sabun")
+        product = st.text_input("urun", label_visibility="collapsed",
+                                placeholder="Örn: El yapımı sabun")
 
         st.markdown('<div class="field-label">Platform</div>', unsafe_allow_html=True)
-        platform = st.selectbox(label="", options=["Instagram", "TikTok", "LinkedIn", "Facebook"])
+        platform = st.selectbox("platform", ["Instagram", "TikTok", "LinkedIn", "Facebook"],
+                                label_visibility="collapsed")
 
     with col2:
         st.markdown('<div class="field-label">Hedef Kitle</div>', unsafe_allow_html=True)
-        audience = st.text_input(label="", placeholder="Örn: Genç yetişkinler, anneler, kahve severler")
+        audience = st.text_input("kitle", label_visibility="collapsed",
+                                 placeholder="Örn: genç yetişkinler, kahve severler")
 
         st.markdown('<div class="field-label">Üslup</div>', unsafe_allow_html=True)
-        tone = st.selectbox(label="", options=["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"])
+        tone = st.selectbox("uslup", ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"],
+                            label_visibility="collapsed")
 
     st.markdown("---")
 
@@ -340,7 +344,9 @@ with st.container():
         else:
             with st.spinner("İngilizce görsel promptu hazırlanıyor..."):
                 try:
-                    english_prompt = translate_to_english_for_image(product, audience, platform, tone)
+                    english_prompt = translate_to_english_for_image(
+                        product, audience, platform, tone
+                    )
                 except Exception as e:
                     st.error(f"İngilizce prompt üretilemedi: {e}")
                     english_prompt = ""
