@@ -5,6 +5,117 @@ import base64
 from io import BytesIO
 from PIL import Image
 
+st.set_page_config(
+    page_title="AdGen – AI Reklam Üretici",
+    page_icon="🎯",
+    layout="centered"
+)
+
+def inject_custom_css():
+    st.markdown(
+        """
+        <style>
+        /* Genel arka plan ve font */
+        .stApp {
+            background: #f5f7fb;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        /* Başlık alanı */
+        .adgen-header {
+            text-align: center;
+            padding: 1.5rem 0 1rem 0;
+        }
+        .adgen-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #222;
+            margin-bottom: 0.2rem;
+        }
+        .adgen-subtitle {
+            font-size: 0.95rem;
+            color: #666;
+        }
+
+        /* Ana kart */
+        .adgen-card {
+            background: #ffffff;
+            padding: 1.5rem 1.8rem;
+            border-radius: 1.1rem;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        /* Bölüm başlıkları */
+        .section-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #475569;
+            margin-bottom: 0.3rem;
+        }
+
+        /* Input’ların üstündeki ikon + yazı */
+        .field-label {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.90rem;
+            color: #334155;
+            margin-bottom: 0.2rem;
+        }
+
+        .field-label span.icon {
+            font-size: 1rem;
+        }
+
+        /* Butonlar */
+        .stButton>button {
+            border-radius: 999px;
+            padding: 0.5rem 1.2rem;
+            border: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Turuncu ana buton */
+        .btn-primary {
+            background: linear-gradient(135deg, #f97316, #ec4899);
+            color: white;
+        }
+
+        /* İkincil buton */
+        .btn-secondary {
+            background: #0f172a;
+            color: white;
+        }
+
+        /* Üçüncü buton */
+        .btn-outline {
+            background: white;
+            color: #0f172a;
+            border: 1px solid #cbd5f5 !important;
+        }
+
+        /* Butonlar için sütun boşluğu */
+        .button-row {
+            margin-top: 1rem;
+        }
+
+        /* Çıktı bölümü */
+        .output-box {
+            margin-top: 1.4rem;
+            padding: 1rem 1.1rem;
+            border-radius: 0.9rem;
+            background: #f9fafb;
+            border: 1px dashed #cbd5e1;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+
 # ---------------------------------------------------
 # Streamlit Secrets
 # ---------------------------------------------------
@@ -155,16 +266,133 @@ Audience: {audience}
 
     return english
 
+inject_custom_css()
 
 # ---------------------------------------------------
 # STREAMLIT UI
 # ---------------------------------------------------
-st.title("🎯 AdGen — AI Reklam Metni + Görsel + Prompt Üretici")
+# Özel tasarım CSS
+inject_custom_css()
 
-product = st.text_input("🛍 Ürün / Hizmet:")
-audience = st.text_input("🎯 Hedef Kitle:")
-platform = st.selectbox("📱 Platform:", ["Instagram", "TikTok", "LinkedIn", "Facebook"])
-tone = st.selectbox("🎨 Üslup:", ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"])
+# Başlık alanı (HTML ile)
+st.markdown(
+    """
+    <div class="adgen-header">
+        <div class="adgen-title">🎯 AdGen – AI Reklam Metni + Görsel + Prompt Üretici</div>
+        <div class="adgen-subtitle">
+            KOBİ'ler için tek ekranda metin, görsel fikir ve gerçek AI görsel desteği.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Ana kart
+with st.container():
+    st.markdown('<div class="adgen-card">', unsafe_allow_html=True)
+
+    # --- Üst form alanı: Ürün, hedef kitle vs. ---
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown('<div class="field-label"><span class="icon">🛍</span> Ürün / Hizmet</div>', unsafe_allow_html=True)
+        product = st.text_input(label="", placeholder="Örn: El yapımı sabun")
+
+        st.markdown('<div class="field-label"><span class="icon">📱</span> Platform</div>', unsafe_allow_html=True)
+        platform = st.selectbox(label="", options=["Instagram", "TikTok", "LinkedIn", "Facebook"])
+
+    with col2:
+        st.markdown('<div class="field-label"><span class="icon">🎯</span> Hedef Kitle</div>', unsafe_allow_html=True)
+        audience = st.text_input(label="", placeholder="Örn: Genç yetişkinler, anneler, kahve severler")
+
+        st.markdown('<div class="field-label"><span class="icon">🎨</span> Üslup</div>', unsafe_allow_html=True)
+        tone = st.selectbox(label="", options=["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"])
+
+    st.markdown("---")
+
+    # --- Butonlar satırı ---
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        text_clicked = st.button("📝 Reklam Metni Üret", key="btn_text")
+    with c2:
+        prompt_clicked = st.button("🎨 Görsel Tasarım Promptu", key="btn_prompt")
+    with c3:
+        image_clicked = st.button("🖼 Gerçek AI Görseli Üret", key="btn_image")
+
+    # --- Çıktılar ---
+    # Reklam metni
+    if text_clicked:
+        if not product or not audience:
+            st.warning("⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.")
+        else:
+            with st.spinner("Metin üretiliyor..."):
+                try:
+                    prompt_text = build_text_prompt(product, audience, platform, tone)
+                    response = text_model.generate_content(prompt_text)
+                    result_text = extract_text_safe(response)
+
+                    st.markdown('<div class="output-box">', unsafe_allow_html=True)
+                    st.subheader("📌 Reklam Metni")
+                    st.write(result_text)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"Hata: {e}")
+
+    # Görsel tasarım promptu
+    if prompt_clicked:
+        if not product or not audience:
+            st.warning("⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.")
+        else:
+            with st.spinner("Görsel tasarım promptu üretiliyor..."):
+                try:
+                    prompt_design = build_image_prompt(product, audience, platform, tone)
+                    response = text_model.generate_content(prompt_design)
+                    result_prompt = extract_text_safe(response)
+
+                    st.markdown('<div class="output-box">', unsafe_allow_html=True)
+                    st.subheader("🖼 Tasarım Promptu")
+                    st.write(result_prompt)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"Hata: {e}")
+
+    # Gerçek AI görseli
+    if image_clicked:
+        if not product or not audience:
+            st.warning("⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.")
+        else:
+            with st.spinner("İngilizce görsel promptu hazırlanıyor..."):
+                try:
+                    english_prompt = translate_to_english_for_image(product, audience, platform, tone)
+                except Exception as e:
+                    st.error(f"İngilizce prompt üretilemedi: {e}")
+                    english_prompt = ""
+
+            if not english_prompt or len(english_prompt) < 5:
+                st.error("Geçerli bir İngilizce prompt üretilemedi, lütfen tekrar deneyin.")
+            else:
+                with st.spinner("Stability SDXL ile görsel üretiliyor..."):
+                    try:
+                        img = generate_image_stability(english_prompt)
+                        st.markdown('<div class="output-box">', unsafe_allow_html=True)
+                        st.subheader("🖼 Üretilen Görsel")
+                        st.image(img, use_column_width=True)
+
+                        buf = BytesIO()
+                        img.save(buf, format="PNG")
+                        st.download_button(
+                            "📥 Görseli İndir",
+                            buf.getvalue(),
+                            "adgen_image.png",
+                            "image/png"
+                        )
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    except Exception as e:
+                        st.error(f"Görsel üretimi hatası: {e}")
+
+    st.markdown('</div>', unsafe_allow_html=True)  # .adgen-card kapanışı
 
 
 # ---------------------------------------------------
