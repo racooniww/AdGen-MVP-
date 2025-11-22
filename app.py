@@ -14,7 +14,6 @@ st.set_page_config(
     layout="centered"
 )
 
-
 def inject_custom_css():
     st.markdown(
         """
@@ -79,6 +78,53 @@ def inject_custom_css():
         unsafe_allow_html=True
     )
 
+# ---------------------------------------------------
+# LANGUAGE DICTIONARY (TR / EN)
+# ---------------------------------------------------
+LANG = {
+    "tr": {
+        "title": "AdGen – AI Reklam Üretim Platformu",
+        "subtitle": "KOBİ'ler ve global markalar için çift dilli reklam metni ve AI görsel üretimi.",
+        "product": "Ürün / Hizmet",
+        "audience": "Hedef Kitle",
+        "platform": "Platform",
+        "tone": "Üslup",
+        "language_label": "Dil / Language",
+        "generate_text": "Reklam Metni Üret",
+        "generate_prompt": "Görsel Tasarım Promptu",
+        "generate_image": "Gerçek AI Görseli Üret",
+        "output_text": "Reklam Metni Çıktısı",
+        "output_prompt": "Görsel Tasarım Promptu",
+        "output_image": "Üretilen Görsel",
+        "warning_fill": "⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.",
+        "down_img": "Görseli İndir",
+        "spinner_text": "Reklam metni üretiliyor...",
+        "spinner_prompt": "Görsel tasarım promptu üretiliyor...",
+        "spinner_img_prompt": "İngilizce görsel promptu hazırlanıyor...",
+        "spinner_img": "Stability SDXL ile görsel üretiliyor..."
+    },
+    "en": {
+        "title": "AdGen – AI Ad Generation Platform",
+        "subtitle": "Bilingual AI-powered ad copy & image generation for SMEs and global brands.",
+        "product": "Product / Service",
+        "audience": "Target Audience",
+        "platform": "Platform",
+        "tone": "Tone",
+        "language_label": "Language / Dil",
+        "generate_text": "Generate Ad Copy",
+        "generate_prompt": "Generate Visual Design Prompt",
+        "generate_image": "Generate AI Image",
+        "output_text": "Ad Copy Output",
+        "output_prompt": "Visual Design Prompt",
+        "output_image": "Generated Image",
+        "warning_fill": "⚠ Please fill in all required fields.",
+        "down_img": "Download Image",
+        "spinner_text": "Generating ad copy...",
+        "spinner_prompt": "Generating visual design prompt...",
+        "spinner_img_prompt": "Preparing English image prompt...",
+        "spinner_img": "Generating image with Stability SDXL..."
+    }
+}
 
 # ---------------------------------------------------
 # API KEY / MODELLER
@@ -92,7 +138,6 @@ STABILITY_URL = (
 )
 
 text_model = genai.GenerativeModel("models/gemini-pro-latest")
-
 
 # ---------------------------------------------------
 # GEMINI SAFE TEXT EXTRACTION
@@ -111,7 +156,6 @@ def extract_text_safe(response):
                     return txt.strip()
 
     return ""
-
 
 # ---------------------------------------------------
 # STABILITY SDXL IMAGE GENERATION
@@ -144,8 +188,9 @@ def generate_image_stability(prompt: str):
 # ---------------------------------------------------
 # PROMPT BUILDER (TEXT) — ÇOK DİLLİ
 # ---------------------------------------------------
-def build_text_prompt(product, audience, platform, tone, language):
-    if language == "Türkçe":
+def build_text_prompt(product, audience, platform, tone, mode):
+    # mode: "tr", "en", "dual"
+    if mode == "tr":
         return f"""
 Sen bir dijital pazarlama uzmanısın.
 
@@ -162,7 +207,7 @@ Aşağıdaki formatta reklam içeriği oluştur:
 - 8 hashtag
 """
 
-    if language == "English":
+    if mode == "en":
         return f"""
 You are a senior digital marketing expert.
 
@@ -179,7 +224,7 @@ Create the following:
 - 8 hashtags
 """
 
-    # Türkçe + English (Dual Output)
+    # dual (TR + EN birlikte)
     return f"""
 You are a bilingual senior digital marketing specialist.
 
@@ -222,9 +267,9 @@ Do NOT mix languages.
 # ---------------------------------------------------
 # PROMPT BUILDER (VISUAL DESIGN) — ÇOK DİLLİ
 # ---------------------------------------------------
-def build_image_prompt(product, audience, platform, tone, language):
+def build_image_prompt(product, audience, platform, tone, mode):
 
-    if language == "Türkçe":
+    if mode == "tr":
         return f"""
 Sen profesyonel bir reklam tasarımcısın.
 
@@ -243,7 +288,7 @@ Reklam görseli için detaylı tasarım promptu oluştur:
 6. SDXL için tek satırlık İngilizce prompt
 """
 
-    if language == "English":
+    if mode == "en":
         return f"""
 You are a professional ad visual designer.
 
@@ -262,7 +307,7 @@ Generate a detailed design prompt for the ad image:
 6. One-line SDXL-ready English prompt
 """
 
-    # Türkçe + English (Dual Output)
+    # dual: TR + EN görsel tasarım promptu
     return f"""
 Generate a bilingual VISUAL DESIGN PROMPT.
 
@@ -300,13 +345,13 @@ Tone: {tone}
 
 
 # ---------------------------------------------------
-# TR → EN YÜKSEK KALİTE GÖRSEL PROMPT (Stability için her zaman EN)
+# TR → EN YÜKSEK KALİTE GÖRSEL PROMPT (Stability için)
 # ---------------------------------------------------
 def translate_to_english_for_image(product, audience, platform, tone):
     base_prompt = f"""
 You are an advertising image prompt generator.
 
-Convert the following Turkish inputs into a fully detailed ENGLISH prompt for SDXL
+Convert the following (possibly Turkish) inputs into a fully detailed ENGLISH prompt for SDXL
 (Stable Diffusion XL) advertising image generation:
 
 Product: {product}
@@ -346,12 +391,33 @@ Rules:
 # ---------------------------------------------------
 inject_custom_css()
 
+# Dil seçici (UI + içerik modu)
+lang_option = st.selectbox(
+    "Language / Dil",
+    ["Türkçe", "English", "Dual (TR + EN Output)"]
+)
+
+# UI dili ve içerik modu
+if lang_option == "Türkçe":
+    ui_lang = "tr"
+    mode = "tr"
+elif lang_option == "English":
+    ui_lang = "en"
+    mode = "en"
+else:
+    # Dual: çıktı iki dilde; UI Türkçe kalsın (istersen "en" yapabiliriz)
+    ui_lang = "tr"
+    mode = "dual"
+
+L = LANG[ui_lang]
+
+# Başlık
 st.markdown(
-    """
+    f"""
     <div class="adgen-header">
-        <div class="adgen-title">AdGen – AI Reklam Üretim Platformu</div>
+        <div class="adgen-title">{L["title"]}</div>
         <div class="adgen-subtitle">
-            KOBİ'ler ve global markalar için, tek ekranda çift dilli reklam metni ve AI görsel üretimi.
+            {L["subtitle"]}
         </div>
     </div>
     """,
@@ -361,24 +427,18 @@ st.markdown(
 with st.container():
     st.markdown('<div class="adgen-card">', unsafe_allow_html=True)
 
-    # Dil seçici
-    language = st.selectbox(
-        " Language / Dil",
-        ["Türkçe + English (Dual Output)", "Türkçe", "English"]
-    )
-
     # Üst form alanı
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown('<div class="field-label">Ürün / Hizmet</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="field-label">{L["product"]}</div>', unsafe_allow_html=True)
         product = st.text_input(
             "urun",
             label_visibility="collapsed",
-            placeholder="Örn: El yapımı sabun"
+            placeholder="Handmade soap" if ui_lang == "en" else "Örn: El yapımı sabun"
         )
 
-        st.markdown('<div class="field-label">Platform</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="field-label">{L["platform"]}</div>', unsafe_allow_html=True)
         platform = st.selectbox(
             "platform",
             ["Instagram", "TikTok", "LinkedIn", "Facebook"],
@@ -386,44 +446,55 @@ with st.container():
         )
 
     with col2:
-        st.markdown('<div class="field-label">Hedef Kitle</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="field-label">{L["audience"]}</div>', unsafe_allow_html=True)
         audience = st.text_input(
             "kitle",
             label_visibility="collapsed",
-            placeholder="Örn: genç yetişkinler, kahve severler"
+            placeholder="e.g. young adults, coffee lovers" if ui_lang == "en"
+            else "Örn: genç yetişkinler, kahve severler"
         )
 
-        st.markdown('<div class="field-label">Üslup / Tone</div>', unsafe_allow_html=True)
-        tone = st.selectbox(
-            "uslup",
-            ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"],
-            label_visibility="collapsed"
-        )
+        st.markdown(f'<div class="field-label">{L["tone"]}</div>', unsafe_allow_html=True)
+        tone_options_tr = ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"]
+        tone_options_en = ["Playful", "Professional", "Friendly", "Persuasive"]
+
+        if ui_lang == "en":
+            tone = st.selectbox(
+                "tone",
+                tone_options_en,
+                label_visibility="collapsed"
+            )
+        else:
+            tone = st.selectbox(
+                "uslup",
+                tone_options_tr,
+                label_visibility="collapsed"
+            )
 
     st.markdown("---")
 
     # Butonlar
     c1, c2, c3 = st.columns(3)
     with c1:
-        text_clicked = st.button("Reklam Metni Üret", key="btn_text")
+        text_clicked = st.button(L["generate_text"], key="btn_text")
     with c2:
-        prompt_clicked = st.button("Görsel Tasarım Promptu", key="btn_prompt")
+        prompt_clicked = st.button(L["generate_prompt"], key="btn_prompt")
     with c3:
-        image_clicked = st.button("Gerçek AI Görseli Üret", key="btn_image")
+        image_clicked = st.button(L["generate_image"], key="btn_image")
 
     # 1) Reklam metni
     if text_clicked:
         if not product or not audience:
-            st.warning("⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.")
+            st.warning(L["warning_fill"])
         else:
-            with st.spinner("Reklam metni üretiliyor..."):
+            with st.spinner(L["spinner_text"]):
                 try:
-                    prompt_text = build_text_prompt(product, audience, platform, tone, language)
+                    prompt_text = build_text_prompt(product, audience, platform, tone, mode)
                     response = text_model.generate_content(prompt_text)
                     result_text = extract_text_safe(response)
 
                     st.markdown('<div class="output-box">', unsafe_allow_html=True)
-                    st.subheader("Reklam Metni Çıktısı")
+                    st.subheader(L["output_text"])
                     st.write(result_text)
                     st.markdown('</div>', unsafe_allow_html=True)
                 except Exception as e:
@@ -432,27 +503,27 @@ with st.container():
     # 2) Görsel tasarım promptu
     if prompt_clicked:
         if not product or not audience:
-            st.warning("⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.")
+            st.warning(L["warning_fill"])
         else:
-            with st.spinner("Görsel tasarım promptu üretiliyor..."):
+            with st.spinner(L["spinner_prompt"]):
                 try:
-                    prompt_design = build_image_prompt(product, audience, platform, tone, language)
+                    prompt_design = build_image_prompt(product, audience, platform, tone, mode)
                     response = text_model.generate_content(prompt_design)
                     result_prompt = extract_text_safe(response)
 
                     st.markdown('<div class="output-box">', unsafe_allow_html=True)
-                    st.subheader("Görsel Tasarım Promptu")
+                    st.subheader(L["output_prompt"])
                     st.write(result_prompt)
-                    st.markmark('</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
                 except Exception as e:
                     st.error(f"Hata: {e}")
 
     # 3) Gerçek AI görseli
     if image_clicked:
         if not product or not audience:
-            st.warning("⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.")
+            st.warning(L["warning_fill"])
         else:
-            with st.spinner("İngilizce görsel promptu hazırlanıyor..."):
+            with st.spinner(L["spinner_img_prompt"]):
                 try:
                     english_prompt = translate_to_english_for_image(
                         product, audience, platform, tone
@@ -464,17 +535,17 @@ with st.container():
             if not english_prompt or len(english_prompt) < 5:
                 st.error("Geçerli bir İngilizce prompt üretilemedi, lütfen tekrar deneyin.")
             else:
-                with st.spinner("Stability SDXL ile görsel üretiliyor..."):
+                with st.spinner(L["spinner_img"]):
                     try:
                         img = generate_image_stability(english_prompt)
                         st.markdown('<div class="output-box">', unsafe_allow_html=True)
-                        st.subheader("Üretilen Görsel")
+                        st.subheader(L["output_image"])
                         st.image(img, use_column_width=True)
 
                         buf = BytesIO()
                         img.save(buf, format="PNG")
                         st.download_button(
-                            "Görseli İndir",
+                            L["down_img"],
                             buf.getvalue(),
                             "adgen_image.png",
                             "image/png"
