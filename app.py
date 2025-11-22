@@ -42,6 +42,16 @@ def inject_custom_css():
             margin-top: 4px;
         }
 
+        /* Ana kart */
+        .adgen-card {
+            background: #ffffff;
+            padding: 1.9rem 2.1rem;
+            border-radius: 1.1rem;
+            max-width: 900px;
+            margin: 0 auto 2rem auto;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+        }
 
         /* Input label */
         .field-label {
@@ -51,35 +61,20 @@ def inject_custom_css():
             margin-bottom: 0.2rem;
         }
 
+        /* Butonlar */
         .stButton>button {
-    border-radius: 14px;
-    padding: 0.55rem 1.4rem;
-    border: 2px solid rgba(255, 94, 0, 0.6);
-    background: linear-gradient(135deg, #fff, #f8fafc);
-    font-weight: 600;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
-    transition: all 0.2s ease;
-}
-.stButton>button:hover {
-    border-color: #fb923c;
-    transform: translateY(-2px);
-}
-
-
-        .btn-primary {
-            background: linear-gradient(135deg, #6366f1, #3b82f6);
-            color: #ffffff;
-        }
-
-        .btn-secondary {
-            background: #0f172a;
-            color: #ffffff;
-        }
-
-        .btn-neutral {
-            background: #f3f4f6;
+            border-radius: 999px;
+            padding: 0.5rem 1.3rem;
+            border: 2px solid #d1d5db;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: #ffffff;
             color: #111827;
-            border: 1px solid #e5e7eb !important;
+        }
+
+        .stButton>button:hover {
+            border-color: #6366f1;
         }
 
         /* Output kutusu */
@@ -157,13 +152,12 @@ def generate_image_stability(prompt: str):
     image_b64 = data["artifacts"][0]["base64"]
     img_bytes = base64.b64decode(image_b64)
     return Image.open(BytesIO(img_bytes))
-
-
 # ---------------------------------------------------
-# PROMPT BUILDER (TEXT)
+# PROMPT BUILDER (TEXT) — ÇOK DİLLİ
 # ---------------------------------------------------
-def build_text_prompt(product, audience, platform, tone):
-    return f"""
+def build_text_prompt(product, audience, platform, tone, language):
+    if language == "Türkçe":
+        return f"""
 Sen bir dijital pazarlama uzmanısın.
 
 Ürün: {product}
@@ -179,9 +173,70 @@ Aşağıdaki formatta reklam içeriği oluştur:
 - 8 hashtag
 """
 
+    if language == "English":
+        return f"""
+You are a senior digital marketing expert.
 
-def build_image_prompt(product, audience, platform, tone):
+Product: {product}
+Target audience: {audience}
+Platform: {platform}
+Tone: {tone}
+
+Create the following:
+
+- 3 short headlines
+- 2 different ad copies (for A/B testing)
+- 1 campaign slogan
+- 8 hashtags
+"""
+
+    # Türkçe + English (Dual Output)
     return f"""
+You are a bilingual senior digital marketing specialist.
+
+Generate TWO VERSIONS of the same ad content:
+
+=========================
+🇹🇷 TURKISH VERSION
+=========================
+
+Ürün: {product}
+Hedef kitle: {audience}
+Platform: {platform}
+Üslup: {tone}
+
+- 3 kısa başlık
+- 2 farklı reklam metni
+- Kampanya sloganı
+- 8 hashtag
+
+=========================
+🇬🇧 ENGLISH VERSION
+=========================
+
+Product: {product}
+Target audience: {audience}
+Platform: {platform}
+Tone: {tone}
+
+- 3 short headlines
+- 2 different ad copies
+- 1 campaign slogan
+- 8 hashtags
+
+OUTPUT FORMAT:
+Write both languages clearly separated under TURKISH VERSION and ENGLISH VERSION.
+Do NOT mix languages.
+"""
+
+
+# ---------------------------------------------------
+# PROMPT BUILDER (VISUAL DESIGN) — ÇOK DİLLİ
+# ---------------------------------------------------
+def build_image_prompt(product, audience, platform, tone, language):
+
+    if language == "Türkçe":
+        return f"""
 Sen profesyonel bir reklam tasarımcısın.
 
 Ürün: {product}
@@ -199,9 +254,64 @@ Reklam görseli için detaylı tasarım promptu oluştur:
 6. SDXL için tek satırlık İngilizce prompt
 """
 
+    if language == "English":
+        return f"""
+You are a professional ad visual designer.
+
+Product: {product}
+Target audience: {audience}
+Platform: {platform}
+Tone: {tone}
+
+Generate a detailed design prompt for the ad image:
+
+1. Composition
+2. Background
+3. Lighting
+4. Camera angle
+5. Color palette
+6. One-line SDXL-ready English prompt
+"""
+
+    # Türkçe + English (Dual Output)
+    return f"""
+Generate a bilingual VISUAL DESIGN PROMPT.
+
+=========================
+🇹🇷 TURKISH PROMPT
+=========================
+
+Ürün: {product}
+Hedef kitle: {audience}
+Platform: {platform}
+Üslup: {tone}
+
+1. Kompozisyon
+2. Arka plan
+3. Işıklandırma
+4. Kamera açısı
+5. Renk paleti
+
+=========================
+🇬🇧 ENGLISH PROMPT
+=========================
+
+Product: {product}
+Target audience: {audience}
+Platform: {platform}
+Tone: {tone}
+
+1. Composition
+2. Background
+3. Lighting
+4. Camera angle
+5. Color palette
+6. One-line SDXL prompt
+"""
+
 
 # ---------------------------------------------------
-# TR → EN YÜKSEK KALİTE GÖRSEL PROMPT
+# TR → EN YÜKSEK KALİTE GÖRSEL PROMPT (Stability için her zaman EN)
 # ---------------------------------------------------
 def translate_to_english_for_image(product, audience, platform, tone):
     base_prompt = f"""
@@ -242,8 +352,6 @@ Rules:
     # Stability limiti: 1–2000 karakter
     english = english[:1900]
     return english
-
-
 # ---------------------------------------------------
 # UI
 # ---------------------------------------------------
@@ -254,7 +362,7 @@ st.markdown(
     <div class="adgen-header">
         <div class="adgen-title">AdGen – AI Reklam Üretim Platformu</div>
         <div class="adgen-subtitle">
-            KOBİ'ler için tek ekranda reklam metni, görsel tasarım promptu ve gerçek AI görsel üretimi.
+            KOBİ'ler ve global markalar için, tek ekranda çift dilli reklam metni ve AI görsel üretimi.
         </div>
     </div>
     """,
@@ -264,26 +372,44 @@ st.markdown(
 with st.container():
     st.markdown('<div class="adgen-card">', unsafe_allow_html=True)
 
-    # Üst form alanı (ARTIK fazladan beyaz kutu yok)
+    # Dil seçici
+    language = st.selectbox(
+        "🌐 Language / Dil",
+        ["Türkçe + English (Dual Output)", "Türkçe", "English"]
+    )
+
+    # Üst form alanı
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown('<div class="field-label">Ürün / Hizmet</div>', unsafe_allow_html=True)
-        product = st.text_input("urun", label_visibility="collapsed",
-                                placeholder="Örn: El yapımı sabun")
+        product = st.text_input(
+            "urun",
+            label_visibility="collapsed",
+            placeholder="Örn: El yapımı sabun"
+        )
 
         st.markdown('<div class="field-label">Platform</div>', unsafe_allow_html=True)
-        platform = st.selectbox("platform", ["Instagram", "TikTok", "LinkedIn", "Facebook"],
-                                label_visibility="collapsed")
+        platform = st.selectbox(
+            "platform",
+            ["Instagram", "TikTok", "LinkedIn", "Facebook"],
+            label_visibility="collapsed"
+        )
 
     with col2:
         st.markdown('<div class="field-label">Hedef Kitle</div>', unsafe_allow_html=True)
-        audience = st.text_input("kitle", label_visibility="collapsed",
-                                 placeholder="Örn: genç yetişkinler, kahve severler")
+        audience = st.text_input(
+            "kitle",
+            label_visibility="collapsed",
+            placeholder="Örn: genç yetişkinler, kahve severler"
+        )
 
-        st.markdown('<div class="field-label">Üslup</div>', unsafe_allow_html=True)
-        tone = st.selectbox("uslup", ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"],
-                            label_visibility="collapsed")
+        st.markdown('<div class="field-label">Üslup / Tone</div>', unsafe_allow_html=True)
+        tone = st.selectbox(
+            "uslup",
+            ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"],
+            label_visibility="collapsed"
+        )
 
     st.markdown("---")
 
@@ -296,43 +422,43 @@ with st.container():
     with c3:
         image_clicked = st.button("Gerçek AI Görseli Üret", key="btn_image")
 
-    # Reklam metni
+    # 1) Reklam metni
     if text_clicked:
         if not product or not audience:
             st.warning("⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.")
         else:
-            with st.spinner("Metin üretiliyor..."):
+            with st.spinner("Reklam metni üretiliyor..."):
                 try:
-                    prompt_text = build_text_prompt(product, audience, platform, tone)
+                    prompt_text = build_text_prompt(product, audience, platform, tone, language)
                     response = text_model.generate_content(prompt_text)
                     result_text = extract_text_safe(response)
 
                     st.markdown('<div class="output-box">', unsafe_allow_html=True)
-                    st.subheader("Reklam Metni")
+                    st.subheader("Reklam Metni Çıktısı")
                     st.write(result_text)
                     st.markdown('</div>', unsafe_allow_html=True)
                 except Exception as e:
                     st.error(f"Hata: {e}")
 
-    # Görsel tasarım promptu
+    # 2) Görsel tasarım promptu
     if prompt_clicked:
         if not product or not audience:
             st.warning("⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.")
         else:
             with st.spinner("Görsel tasarım promptu üretiliyor..."):
                 try:
-                    prompt_design = build_image_prompt(product, audience, platform, tone)
+                    prompt_design = build_image_prompt(product, audience, platform, tone, language)
                     response = text_model.generate_content(prompt_design)
                     result_prompt = extract_text_safe(response)
 
                     st.markdown('<div class="output-box">', unsafe_allow_html=True)
                     st.subheader("Görsel Tasarım Promptu")
                     st.write(result_prompt)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    st.markmark('</div>', unsafe_allow_html=True)
                 except Exception as e:
                     st.error(f"Hata: {e}")
 
-    # Gerçek AI görseli
+    # 3) Gerçek AI görseli
     if image_clicked:
         if not product or not audience:
             st.warning("⚠ Lütfen ürün ve hedef kitle alanlarını doldurun.")
