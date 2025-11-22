@@ -1,5 +1,9 @@
 import streamlit as st
 import google.generativeai as genai
+import requests
+import base64
+from io import BytesIO
+from PIL import Image
 
 # ---------------------------------------------------
 # PAGE CONFIG
@@ -35,7 +39,7 @@ LANG = {
         "visual_spinner": "Görsel tasarım promptu hazırlanıyor...",
         "comp_scan_spinner": "Web üzerinden rakipler analiz ediliyor...",
         "comp_analysis_spinner": "Rakip analizi hazırlanıyor...",
-        "image_info": "Görsel üretim modülü şu an devre dışı. İstenirse Stability / HuggingFace entegrasyonu yeniden eklenebilir."
+        "image_info": "AI görsel üretimi Stability SDXL ile yapılacak."
     },
     "en": {
         "title": "AdGen – AI Advertising Generator",
@@ -58,7 +62,7 @@ LANG = {
         "visual_spinner": "Generating visual design prompt...",
         "comp_scan_spinner": "Scanning competitors using the web...",
         "comp_analysis_spinner": "Preparing competitor analysis...",
-        "image_info": "Image generation module is currently disabled. It can be re-enabled with Stability / HuggingFace integration."
+        "image_info": "AI image generation will use Stability SDXL."
     }
 }
 
@@ -72,26 +76,23 @@ ui_language = st.selectbox(
 
 if ui_language == "Türkçe":
     L = LANG["tr"]
-    output_mode = "tr"   # metin çıktı dili
+    output_mode = "tr"
     comp_lang = "tr"
 elif ui_language == "English":
     L = LANG["en"]
     output_mode = "en"
     comp_lang = "en"
 else:
-    # UI Türkçe, içerik hem TR hem EN
     L = LANG["tr"]
     output_mode = "dual"
-    comp_lang = "tr"   # rakip analizi Türkçe olsun, istersen "en" yapabiliriz
+    comp_lang = "tr"
 
 # ---------------------------------------------------
 # GEMINI CONFIG
 # ---------------------------------------------------
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# Tek model: Gemini 2.5 Flash (metin + rekabet analizi için)
 text_model = genai.GenerativeModel("models/gemini-2.5-flash")
-
 
 # ---------------------------------------------------
 # CUSTOM CSS
@@ -147,7 +148,6 @@ def inject_custom_css():
         unsafe_allow_html=True
     )
 
-
 inject_custom_css()
 
 # ---------------------------------------------------
@@ -160,14 +160,12 @@ def extract_text_safe(response):
     if hasattr(response, "candidates") and response.candidates:
         cand = response.candidates[0]
         if hasattr(cand, "content") and hasattr(cand.content, "parts"):
-            if cand.content.parts and hasattr(cand.content.parts[0], "text"):
-                txt = cand.content.parts[0].text
-                if txt:
-                    return txt.strip()
+            parts = cand.content.parts
+            if parts and hasattr(parts[0], "text"):
+                if parts[0].text:
+                    return parts[0].text.strip()
 
     return ""
-
-
 # ---------------------------------------------------
 # AD COPY PROMPT BUILDER (TR / EN / DUAL)
 # ---------------------------------------------------
@@ -200,18 +198,17 @@ Tone: {tone}
 Generate:
 
 - 3 short headlines
-- 2 different ad copies (for A/B testing)
+- 2 different ad copies (A/B test)
 - 1 campaign slogan
 - 8 hashtags
 """
-    # dual (TR + EN)
+    # dual
     return f"""
-You are a bilingual senior digital marketing specialist.
-
-Generate TWO versions of the same ad content.
+You are a bilingual digital marketing specialist.
+Create TWO versions: TR + EN.
 
 =========================
-🇹🇷 TURKISH VERSION
+🇹🇷 TÜRKÇE
 =========================
 
 Ürün: {product}
@@ -220,30 +217,27 @@ Platform: {platform}
 Üslup: {tone}
 
 - 3 kısa başlık
-- 2 farklı reklam metni
-- 1 kampanya sloganı
+- 2 reklam metni
+- 1 slogan
 - 8 hashtag
 
 =========================
-🇬🇧 ENGLISH VERSION
+🇬🇧 ENGLISH
 =========================
 
 Product: {product}
-Target audience: {audience}
+Audience: {audience}
 Platform: {platform}
 Tone: {tone}
 
-- 3 short headlines
-- 2 different ad copies
-- 1 campaign slogan
+- 3 headlines
+- 2 ad copies
+- 1 slogan
 - 8 hashtags
-
-Keep Turkish and English clearly separated.
 """
 
-
 # ---------------------------------------------------
-# VISUAL DESIGN PROMPT BUILDER (TR / EN / DUAL)
+# VISUAL PROMPT BUILDER (TR / EN / DUAL)
 # ---------------------------------------------------
 def build_visual_prompt(product, audience, platform, tone, mode):
     if mode == "tr":
@@ -257,127 +251,161 @@ Platform: {platform}
 
 Reklam görseli için aşağıdaki başlıklara göre detaylı bir tasarım açıklaması yap:
 
-1) Kompozisyon (ürünün konumu, kadraj)
-2) Arka plan (mekan, doku, ortam)
-3) Işıklandırma (yumuşak, sert, dramatik vs.)
-4) Renk paleti
-5) Kamera açısı (yakın plan, üstten, göz hizası vb.)
-6) İsteğe bağlı: Stable Diffusion / SDXL için tek satırlık İngilizce prompt örneği.
+1) Kompozisyon  
+2) Arka plan  
+3) Işıklandırma  
+4) Renk paleti  
+5) Kamera açısı  
+6) SDXL için tek satırlık İngilizce prompt ekle
 """
     if mode == "en":
         return f"""
 You are an advertising visual designer.
 
 Product: {product}
-Target audience: {audience}
+Audience: {audience}
 Platform: {platform}
 Tone: {tone}
 
-Describe a detailed visual design for an ad:
-
-1) Composition (where the product is placed)
-2) Background (environment, texture, scene)
-3) Lighting (soft, studio, dramatic, natural)
-4) Color palette
-5) Camera angle (close-up, eye level, top view)
-6) Optional: a single-line SDXL / Stable Diffusion prompt.
-"""
-    # dual
-    return f"""
-You are a bilingual advertising visual designer.
-
-Create a visual concept in TWO SECTIONS.
-
-=========================
-🇹🇷 TÜRKÇE AÇIKLAMA
-=========================
-
-Ürün: {product}
-Hedef kitle: {audience}
-Platform: {platform}
-Üslup: {tone}
-
-1) Kompozisyon
-2) Arka plan
-3) Işıklandırma
-4) Renk paleti
-5) Kamera açısı
-
-=========================
-🇬🇧 ENGLISH DESCRIPTION
-=========================
-
-Product: {product}
-Target audience: {audience}
-Platform: {platform}
-Tone: {tone}
+Describe:
 
 1) Composition
 2) Background
 3) Lighting
 4) Color palette
 5) Camera angle
-6) One SDXL-style English prompt line.
+6) One SDXL-style English prompt line
+"""
+    # dual
+    return f"""
+Create TWO SECTIONS: TR + EN
+
+=========================
+🇹🇷 TÜRKÇE
+=========================
+Ürün: {product}
+Kitle: {audience}
+Platform: {platform}
+Üslup: {tone}
+
+1) Kompozisyon  
+2) Arka plan  
+3) Işıklandırma  
+4) Renk paleti  
+5) Kamera açısı  
+
+=========================
+🇬🇧 ENGLISH
+=========================
+Product: {product}
+Audience: {audience}
+Platform: {platform}
+Tone: {tone}
+
+1) Composition  
+2) Background  
+3) Lighting  
+4) Color palette  
+5) Camera angle  
+6) 1-line SDXL English prompt
 """
 
+# ---------------------------------------------------
+# ENGLISH PROMPT TRANSLATOR FOR SDXL
+# ---------------------------------------------------
+def translate_to_english_for_image(product, audience, platform, tone):
+    prompt = f"""
+You are a senior AI advertisement image prompt engineer.
+
+Translate the following into a HIGH-QUALITY English SDXL prompt:
+
+Product: {product}
+Audience: {audience}
+Platform: {platform}
+Tone: {tone}
+
+Requirements:
+- English only
+- Include composition, lighting, scene, style, camera angle
+- End with 1 final SDXL prompt line
+"""
+    r = text_model.generate_content(prompt)
+    english = extract_text_safe(r)
+
+    if not english or len(english) < 5:
+        english = f"SDXL product photo of {product}, targeted to {audience}, studio lighting, 4k, clean background."
+
+    return english.strip()
 
 # ---------------------------------------------------
-# COMPETITOR SCAN (NO RAW URLS, STRATEGIC SUMMARY)
+# STABILITY SDXL – NEW 2024 API (WORKING)
+# ---------------------------------------------------
+STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
+
+def generate_image_stability(prompt):
+    url = "https://api.stability.ai/v2beta/stable-image/generate/sdxl"
+
+    headers = {
+        "Authorization": f"Bearer {STABILITY_API_KEY}"
+    }
+
+    files = {
+        "prompt": (None, prompt),
+        "mode": (None, "text-to-image"),
+        "output_format": (None, "png"),
+        "aspect_ratio": (None, "1:1")
+    }
+
+    response = requests.post(url, headers=headers, files=files)
+
+    if response.status_code != 200:
+        raise ValueError(f"Stability API Error: {response.text}")
+
+    img_bytes = response.content
+    return Image.open(BytesIO(img_bytes))
+
+# ---------------------------------------------------
+# COMPETITOR SCAN (TR / EN)
 # ---------------------------------------------------
 def scan_competitors(product_name, lang="tr"):
-    """
-    Competitive intelligence using Gemini 2.5 Flash.
-    Burada gerçek web bilgisini kullanarak özetleyici / çıkarımsal bir analiz yapmasını istiyoruz.
-    """
 
     if lang == "tr":
         prompt = f"""
-Sen bir rekabet analizi ve pazarlama stratejisi uzmanısın.
+Sen bir rekabet analizi uzmanısın.
 
-Görevin:
-- İnternetten '{product_name}' ile ilgili markalar, rakipler ve reklam örnekleri hakkında genel bir fikir edinmek
-- Web sonuçlarını birebir listelemek yerine, genelleştirilmiş çıkarımlar yaparak özetlemek
+Görev:
+'{product_name}' ile ilgili rakip markaları ve sektör trendlerini analiz et.
+URL verme, özet çıkar.
 
-ÇIKTI BÖLÜMLERİ (TAMAMI TÜRKÇE OLSUN):
-
-1) Öne çıkan rakip marka türleri
-2) Rakiplerin sıklıkla kullandığı slogan ve mesaj temaları
-3) Reklamlarda en çok vurgulanan özellikler (örnek cümlelerle)
-4) Reklam tonu (samimi, premium, eğlenceli, ciddi vb.) ve örnekler
-5) Sektörde fark edilen temel trendler
-6) Pazarda görülen boşluklar (market gaps)
-7) '{product_name}' için 3 net farklılaşma / konumlandırma önerisi (USP)
-
-URL veya spesifik site ismi verme, özet analiz yap.
+Çıktı:
+1) Rakip marka türleri  
+2) Slogan / mesaj temaları  
+3) Reklamlarda en çok vurgulanan özellikler  
+4) Reklam tonu + örnekler  
+5) Sektör trendleri  
+6) Pazar boşlukları  
+7) '{product_name}' için 3 farklılaşma önerisi  
 """
     else:
         prompt = f"""
-You are a competitive intelligence and marketing strategy expert.
+You are a competitive intelligence expert.
 
-Your task:
-- Reason about the web for brands, competitors and ad examples related to '{product_name}'
-- Instead of listing raw URLs, provide synthesized insights and patterns
+Task:
+Analyze competitor patterns for '{product_name}'.
+No raw URLs.
 
-OUTPUT SECTIONS (ENGLISH):
-
-1) Types of key competitor brands
-2) Common slogan and message themes competitors use
-3) Most emphasized features in ads (with example lines)
-4) Overall ad tone (friendly, premium, playful, serious) + examples
-5) Major trends observed in the category
-6) Market gaps and underserved needs
-7) 3 clear differentiation / positioning strategies (USP) for '{product_name}'
-
-Do NOT output raw URLs. Provide a concise but insightful analysis.
+Output:
+1) Competitor brand types  
+2) Message themes  
+3) Most emphasized ad angles  
+4) Tone + examples  
+5) Category trends  
+6) Market gaps  
+7) 3 differentiation strategies  
 """
 
-    try:
-        response = text_model.generate_content(prompt)
-        return extract_text_safe(response)
-    except Exception as e:
-        return f"Competitor scan error: {e}"
-
-
+    r = text_model.generate_content(prompt)
+    return extract_text_safe(r)
 # ---------------------------------------------------
 # UI – HEADER
 # ---------------------------------------------------
@@ -392,7 +420,7 @@ st.markdown(
 )
 
 # ---------------------------------------------------
-# MAIN CARD – AD TEXT + VISUAL PROMPT
+# MAIN CARD – PRODUCT INPUTS + AD GENERATION
 # ---------------------------------------------------
 with st.container():
     st.markdown('<div class="adgen-card">', unsafe_allow_html=True)
@@ -404,7 +432,7 @@ with st.container():
         product = st.text_input(
             "product",
             label_visibility="collapsed",
-            placeholder="Handmade soap" if ui_language == "English" else "Örn: el yapımı sabun"
+            placeholder="Handmade soap" if ui_language != "Türkçe" else "El yapımı sabun"
         )
 
         st.markdown(f'<div class="field-label">{L["platform"]}</div>', unsafe_allow_html=True)
@@ -419,27 +447,21 @@ with st.container():
         audience = st.text_input(
             "audience",
             label_visibility="collapsed",
-            placeholder="e.g. young adults, coffee lovers"
-            if ui_language == "English"
-            else "Örn: genç yetişkinler, kahve severler"
+            placeholder="e.g. young adults, mothers" if ui_language != "Türkçe" else "Genç yetişkinler, anneler"
         )
 
         st.markdown(f'<div class="field-label">{L["tone"]}</div>', unsafe_allow_html=True)
-        if ui_language == "English":
-            tone = st.selectbox(
-                "tone",
-                ["Playful", "Professional", "Friendly", "Persuasive"],
-                label_visibility="collapsed"
-            )
-        else:
-            tone = st.selectbox(
-                "tone_tr",
-                ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"],
-                label_visibility="collapsed"
-            )
+        tone = st.selectbox(
+            "tone",
+            ["Playful", "Professional", "Friendly", "Persuasive"]
+            if ui_language != "Türkçe"
+            else ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"],
+            label_visibility="collapsed"
+        )
 
     st.markdown("---")
 
+    # BUTTONS
     c1, c2, c3 = st.columns(3)
     with c1:
         btn_text = st.button(L["generate_text"])
@@ -448,43 +470,70 @@ with st.container():
     with c3:
         btn_image = st.button(L["generate_image"])
 
-    # Ad copy
+    # --- TEXT GENERATION ---
     if btn_text:
         if not product or not audience:
             st.warning(L["warning_fill"])
         else:
             with st.spinner(L["adcopy_spinner"]):
-                try:
-                    p = build_ad_text_prompt(product, audience, platform, tone, output_mode)
-                    r = text_model.generate_content(p)
-                    txt = extract_text_safe(r)
-                    st.markdown('<div class="output-box">', unsafe_allow_html=True)
-                    st.subheader(L["generate_text"])
-                    st.write(txt)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Hata / Error: {e}")
+                p = build_ad_text_prompt(product, audience, platform, tone, output_mode)
+                res = text_model.generate_content(p)
+                txt = extract_text_safe(res)
 
-    # Visual prompt
+                st.markdown('<div class="output-box">', unsafe_allow_html=True)
+                st.subheader("Ad Copy / Reklam Metni")
+                st.write(txt)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- VISUAL PROMPT GENERATION ---
     if btn_visual:
         if not product or not audience:
             st.warning(L["warning_fill"])
         else:
             with st.spinner(L["visual_spinner"]):
-                try:
-                    p = build_visual_prompt(product, audience, platform, tone, output_mode)
-                    r = text_model.generate_content(p)
-                    txt = extract_text_safe(r)
-                    st.markdown('<div class="output-box">', unsafe_allow_html=True)
-                    st.subheader(L["generate_prompt"])
-                    st.write(txt)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Hata / Error: {e}")
+                p = build_visual_prompt(product, audience, platform, tone, output_mode)
+                res = text_model.generate_content(p)
+                txt = extract_text_safe(res)
 
-    # Image placeholder
+                st.markdown('<div class="output-box">', unsafe_allow_html=True)
+                st.subheader("Visual Design Prompt")
+                st.write(txt)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- REAL STABILITY SDXL IMAGE GENERATION ---
     if btn_image:
-        st.info(L["image_info"])
+        if not product or not audience:
+            st.warning(L["warning_fill"])
+        else:
+            st.info(L["image_info"])
+
+            # 1. Türkçe → İngilizce prompt çevir
+            with st.spinner("Converting to English for SDXL..."):
+                english_prompt = translate_to_english_for_image(product, audience, platform, tone)
+
+            # 2. Stability SDXL üretim
+            with st.spinner("Stability SDXL generating image..."):
+                try:
+                    img = generate_image_stability(english_prompt)
+
+                    st.markdown('<div class="output-box">', unsafe_allow_html=True)
+                    st.subheader("Generated Image")
+                    st.image(img, use_column_width=True)
+
+                    buf = BytesIO()
+                    img.save(buf, format="PNG")
+
+                    st.download_button(
+                        L["down_img"],
+                        buf.getvalue(),
+                        file_name="adgen_sdxl.png",
+                        mime="image/png"
+                    )
+
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                except Exception as e:
+                    st.error(f"Görsel üretimi hatası: {e}")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -513,18 +562,11 @@ with st.container():
             st.warning(L["warning_fill"])
         else:
             with st.spinner(L["comp_scan_spinner"]):
-                raw = scan_competitors(competitor_name, comp_lang)
+                analysis = scan_competitors(competitor_name, comp_lang)
 
-            if not raw:
-                st.error(
-                    "Web sonuçları alınamadı, lütfen daha genel bir ürün / kategori adı deneyin."
-                    if comp_lang == "tr"
-                    else "Could not retrieve useful insights, please try a broader product/category."
-                )
-            else:
-                st.markdown('<div class="output-box">', unsafe_allow_html=True)
-                st.subheader(L["output_competitor"])
-                st.write(raw)
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div class="output-box">', unsafe_allow_html=True)
+            st.subheader(L["output_competitor"])
+            st.write(analysis)
+            st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
