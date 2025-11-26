@@ -1,140 +1,176 @@
-AI-powered Advertising Content Generator MVP for SMEs
+AdGen: AI-Powered Advertising Content Generator
 
-1. Proje Hakkında
+1. Proje Tanımı
 
-AdGen, küçük ve orta ölçekli işletmelerin (KOBİ’lerin) dijital pazarlama süreçlerinde kullanmak üzere geliştirilmiş, yapay zeka tabanlı reklam içeriği üretme aracıdır.
+AdGen, küçük ve orta ölçekli işletmelerin (KOBİ’lerin) dijital pazarlama süreçlerini kolaylaştırmak amacıyla geliştirilmiş yapay zekâ tabanlı bir reklam içerik üretim platformudur.
+Uygulama; reklam metni oluşturma, görsel tasarım promptu üretme, gerçek yapay zekâ görseli oluşturma ve rakip analizi gibi modülleri tek bir arayüz altında birleştirir.
 
-Kullanıcıdan alınan bilgiler (ürün, hedef kitle, platform, üslup…) doğrultusunda:
+Bu proje, uygulamalı yapay zekâ tekniklerinin gerçek bir iş problemi üzerine uygulanmasını amaçlar. Ayrıca çok dilli (Türkçe + İngilizce) kullanım desteği sunar.
 
-Reklam başlıkları
+2. Özellikler
+2.1 Reklam Metni Üretimi
 
-Açıklama metinleri
+Gemini Pro modeli kullanılarak profesyonel ve platformlara uygun reklam metinleri oluşturulur.
 
-Hashtag önerileri
+Üretilen içerikler; başlıklar, sloganlar, A/B test metinleri ve hashtag önerilerinden oluşur.
 
-Görsel fikirleri
+Türkçe ve İngilizce içerik üretimi desteklenir.
 
-üreten bir generative AI uygulamasıdır.
+2.2 Görsel Tasarım Promptu Üretimi
 
-Bu proje, YBS öğrencileri tarafından geliştirilen bir Minimum Uygulanabilir Ürün (MVP) örneğidir.
+Ürün, hedef kitle ve platform bilgilerine göre detaylı bir görsel promptu oluşturulur.
 
-2. Projenin Amacı
+Prompt; kompozisyon, ışıklandırma, arka plan, kamera açısı ve renk paleti gibi öğeleri içerir.
 
-KOBİ’ler profesyonel ajanslara erişemediği veya bütçe ayıramadığı için sosyal medya reklamlarını kendileri hazırlamak zorunda kalır.
-Bu süreç:
+SDXL için optimize edilmiş tek satır İngilizce prompt üretimi yapılır.
 
-zaman alıcı
+2.3 AI Görsel Üretimi (SDXL)
 
-yaratıcılık gerektiren
+Stability AI’ın SDXL modeli kullanılır.
 
-teknik bilgi isteyen
+Ürün odaklı, yüksek çözünürlüklü (1024×1024) görseller oluşturulur.
 
-bir süreçtir.
+Base64’den PNG’ye dönüştürme işlemi yapılır ve kullanıcı görseli indirebilir.
 
-AdGen, işletmelerin sadece birkaç bilgi girişiyle profesyonel reklam içerikleri oluşturmasını sağlayarak zaman kazandırır ve reklam kalitesini artırır.
+2.4 Rakip Analizi Modülü
 
- 3. Kullanılan Teknolojiler
-Alan	Teknoloji
-Backend	Python
-UI	Streamlit
-Yapay Zeka	OpenAI GPT-4o / GPT-4o-mini
-Veritabanı (opsiyonel)	SQLite
-Repository	GitHub
+Girilen ürün/hizmet adına göre benzer marka ve kampanyalara yönelik analiz çıkarılır.
 
- 5. Uygulama Özellikleri
+Rakiplerin kampanya mesajları, slogan trendleri, platform tercihleri ve farklılaşma önerileri sunulur.
 
-Ürün/Hizmet girişi
+Hem Türkçe hem İngilizce analiz üretilebilir.
 
-Hedef kitle tanımı
+2.5 Çok Dilli Arayüz
 
-Platform seçimi (Instagram, TikTok, LinkedIn, Facebook)
+Kullanıcı arayüzü Türkçe ve İngilizce arasında değiştirilebilir.
 
-Marka üslubu seçimi
+Arayüzdeki tüm metinler ve üretilen reklam içerikleri dil seçimine göre yeniden oluşturulur.
 
-Tek tıkla reklam içeriği oluşturma
+2.6 Modern Arayüz Tasarımı
 
-Üretilen metinleri ekranda gösterme
+Streamlit üzerinde özel CSS ile geliştirilen temiz ve minimal bir UI yapısı vardır.
 
-Görsel önerisi sunma
+Turuncu–mor degrade temalı AdGen tasarım kimliği kullanılmıştır.
+
+3. Kullanılan Teknolojiler
+3.1 Programlama Dili ve Arayüz
+
+Python
+
+Streamlit
+
+HTML ve CSS tabanlı stil özelleştirmeleri
+
+3.2 Yapay Zekâ Modelleri
+
+Gemini Pro (Text Generation, Competitor Analysis)
+
+Stable Diffusion XL – SDXL (Image Generation)
+
+3.3 API ve Veri Yapıları
+
+REST API
+
+JSON tabanlı istek/cevap formatı
+
+Base64 görsel verisi çözümleme
+
+HTTP POST istekleri
+
+3.4 Python Kütüphaneleri
+
+streamlit
+
+google-generativeai
+
+requests
+
+pillow (PIL)
+
+io
+
+base64
+
+4. Dosya Yapısı
+AdGen-MVP/
+│
+├── app.py                 # Ana uygulama dosyası
+├── requirements.txt       # Gerekli Python paketleri
+└── README.md              # Proje açıklaması
 
 5. Kurulum ve Çalıştırma
- Gerekli Kurulumlar
-
-Python 3.10+ önerilir.
-
-1. Depoyu Klonla
-git clone https://github.com/racooniww/AdGen-MVP-.git
-cd AdGen-MVP-
-
-2. Gerekli Paketleri Kur
+5.1 Bağımlılıkların yüklenmesi
 pip install -r requirements.txt
 
-3. OpenAI API Anahtarı Ekle
+5.2 API anahtarlarının eklenmesi
 
-Streamlit için şu klasöre bir dosya oluştur:
+Aşağıdaki dosyayı oluşturun:
 
- .streamlit/secrets.toml
+.streamlit/secrets.toml
 
-İçine şunu yaz:
+İçine şunları yazın:
 
-OPENAI_API_KEY = "buraya_anahtarını_yaz"
+GEMINI_API_KEY = "your-gemini-key"
+STABILITY_API_KEY = "your-stability-key"
 
-4. Uygulamayı Başlat
+5.3 Uygulamanın çalıştırılması
 streamlit run app.py
 
+6. Uygulama Akışı
 
-Uygulama tarayıcıda otomatik açılır.
+Kullanıcı ürün, hedef kitle, platform, üslup ve dil seçimini yapar.
 
-6. Dosya Yapısı
-AdGen-MVP/
-│── app.py                # Ana uygulama dosyası
-│── requirements.txt      # Gerekli Python paketleri
-│── README.md             # Proje dokümantasyonu
-│── .gitignore            # Gereksiz dosyaları dışlama
-└── .streamlit/
-      └── secrets.toml    # API anahtarı (local)
+Reklam metni oluşturma modülü çalışır.
 
-7. Örnek Kullanım
+Görsel tasarım promptu oluşturulur.
 
-Ürün:
-Soğuk kahve
+İngilizce optimize prompt SDXL API'ye gönderilir.
 
-Hedef Kitle:
-Üniversite öğrencileri
+Görsel üretilir, ekranda gösterilir ve indirilebilir.
 
-Platform:
-Instagram
+Rakip analizi modülü rakip stratejilerini analiz eder ve raporlar.
 
-Üslup:
-Eğlenceli
+Tüm işlemler tek bir modern arayüz üzerinden gerçekleştirilir.
 
-AdGen çıktısı:
+7. Mimari Yapı
+7.1 Uygulama Bileşenleri
 
-3 farklı reklam metni
+Kullanıcı Arayüzü (Streamlit tabanlı)
 
-Vurucu başlık
+Prompt Oluşturucu Fonksiyonlar
 
-Hashtag önerileri
+Gemini Pro Metin Motoru
 
-Görsel tahmini (ör: “buz küpleri arasında ferahlatıcı bir kahve bardağı”)
+SDXL Görsel Motoru
 
-8. Gelecek Geliştirme Fikirleri
+Rakip Analizi Motoru
 
-Çok dilli reklam üretimi (TR/EN)
+Sonuç Görselleştirme Modülü
 
-Görsel üretimi (DALL·E, Stable Diffusion)
+7.2 Veri Akış Diyagramı
 
-KPI analizi (etkileşim tahmini)
+Kullanıcı → Prompt Builder → Gemini/SDXL → İşlenen Çıktı → Arayüz
 
-Tam otomatik reklam yayınlama (Meta / Google Ads API)
+8. Gelecek Planlar
 
-Kullanıcı hesabı oluşturma ve proje kaydı
+Video reklam oluşturma
 
-9. Proje Ekibi
+Meta Ads API ile otomatik reklam yayını
 
-AdGen üç kişilik bir ekip tarafından geliştirilmiştir.
-Ekip görev dağılımı proje raporunda detaylı açıklanacaktır.
+Kullanıcı hesabı ve geçmiş kampanya kaydı
 
-10. Lisans
+Kişiselleştirilmiş marka kimliği hafızası
 
-Bu proje eğitim amaçlıdır.
+Çoklu görsel kombinasyonu
+
+Mobil uygulama (Flutter)
+
+PDF kampanya raporu oluşturma
+
+9. Geliştiriciler
+
+Amine Yıldırım – AI ve Backend Geliştirici
+
+(Diğer ekip üyesi) – Sunum
+
+(Diğer ekip üyesi) – Raporlama ve Araştırma
