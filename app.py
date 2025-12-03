@@ -91,7 +91,6 @@ else:
 # GEMINI CONFIG
 # ---------------------------------------------------
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-
 text_model = genai.GenerativeModel("models/gemini-2.5-flash")
 
 # ---------------------------------------------------
@@ -101,30 +100,11 @@ def inject_custom_css():
     st.markdown(
         """
         <style>
-        .stApp {
-            background: #f6f8fc;
-            font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-        }
-        .adgen-header {
-            text-align: center;
-            margin-bottom: 1.4rem;
-        }
-        .adgen-title {
-            font-size: 2.1rem;
-            font-weight: 800;
-            color: #111827;
-        }
-        .adgen-subtitle {
-            font-size: 1rem;
-            color: #4b5563;
-            margin-top: -6px;
-        }
-        .field-label {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 0.25rem;
-        }
+        .stApp { background: #f6f8fc; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+        .adgen-header { text-align: center; margin-bottom: 1.4rem; }
+        .adgen-title { font-size: 2.1rem; font-weight: 800; color: #111827; }
+        .adgen-subtitle { font-size: 1rem; color: #4b5563; margin-top: -6px; }
+        .field-label { font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 0.25rem; }
         .stButton>button {
             border-radius: 999px !important;
             padding: 0.55rem 1.2rem !important;
@@ -133,16 +113,8 @@ def inject_custom_css():
             background: white !important;
             color: #111827 !important;
         }
-        .stButton>button:hover {
-            border-color: #6366f1 !important;
-        }
-        .output-box {
-            margin-top: 1.2rem;
-            padding: 1rem 1.1rem;
-            border-radius: 0.9rem;
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-        }
+        .stButton>button:hover { border-color: #6366f1 !important; }
+        .output-box { margin-top: 1.2rem; padding: 1rem 1.1rem; border-radius: 0.9rem; background: #f9fafb; border: 1px solid #e5e7eb; }
         </style>
         """,
         unsafe_allow_html=True
@@ -151,12 +123,11 @@ def inject_custom_css():
 inject_custom_css()
 
 # ---------------------------------------------------
-# SAFE TEXT EXTRACTION FROM GEMINI
+# SAFE TEXT EXTRACTION
 # ---------------------------------------------------
 def extract_text_safe(response):
     if hasattr(response, "text") and response.text:
         return response.text.strip()
-
     if hasattr(response, "candidates") and response.candidates:
         cand = response.candidates[0]
         if hasattr(cand, "content") and hasattr(cand.content, "parts"):
@@ -164,17 +135,17 @@ def extract_text_safe(response):
             if parts and hasattr(parts[0], "text"):
                 if parts[0].text:
                     return parts[0].text.strip()
-
     return ""
+
 # ---------------------------------------------------
-# AD COPY PROMPT BUILDER (TR / EN / DUAL)
+# AD COPY PROMPT BUILDER
 # ---------------------------------------------------
-def build_ad_text_prompt(product, audience, platform, tone, mode):
+def build_ad_text_prompt(product_details, audience, platform, tone, mode):
     if mode == "tr":
         return f"""
 Sen bir dijital pazarlama uzmanısın.
 
-Ürün: {product}
+Ürün Detayları: {product_details}
 Hedef kitle: {audience}
 Platform: {platform}
 Üslup: {tone}
@@ -190,7 +161,7 @@ Aşağıdaki formatta reklam içeriği oluştur:
         return f"""
 You are a senior digital marketing expert.
 
-Product: {product}
+Product Details: {product_details}
 Target audience: {audience}
 Platform: {platform}
 Tone: {tone}
@@ -202,7 +173,6 @@ Generate:
 - 1 campaign slogan
 - 8 hashtags
 """
-    # dual
     return f"""
 You are a bilingual digital marketing specialist.
 Create TWO versions: TR + EN.
@@ -211,7 +181,7 @@ Create TWO versions: TR + EN.
 🇹🇷 TÜRKÇE
 =========================
 
-Ürün: {product}
+Ürün Detayları: {product_details}
 Hedef kitle: {audience}
 Platform: {platform}
 Üslup: {tone}
@@ -225,7 +195,7 @@ Platform: {platform}
 🇬🇧 ENGLISH
 =========================
 
-Product: {product}
+Product Details: {product_details}
 Audience: {audience}
 Platform: {platform}
 Tone: {tone}
@@ -237,14 +207,14 @@ Tone: {tone}
 """
 
 # ---------------------------------------------------
-# VISUAL PROMPT BUILDER (TR / EN / DUAL)
+# VISUAL PROMPT BUILDER
 # ---------------------------------------------------
-def build_visual_prompt(product, audience, platform, tone, mode):
+def build_visual_prompt(product_details, audience, platform, tone, mode):
     if mode == "tr":
         return f"""
 Sen bir reklam görseli tasarım uzmanısın.
 
-Ürün: {product}
+Ürün Detayları: {product_details}
 Hedef kitle: {audience}
 Platform: {platform}
 Üslup: {tone}
@@ -262,7 +232,7 @@ Reklam görseli için aşağıdaki başlıklara göre detaylı bir tasarım aç�
         return f"""
 You are an advertising visual designer.
 
-Product: {product}
+Product Details: {product_details}
 Audience: {audience}
 Platform: {platform}
 Tone: {tone}
@@ -276,14 +246,13 @@ Describe:
 5) Camera angle
 6) One SDXL-style English prompt line
 """
-    # dual
     return f"""
 Create TWO SECTIONS: TR + EN
 
 =========================
 🇹🇷 TÜRKÇE
 =========================
-Ürün: {product}
+Ürün Detayları: {product_details}
 Kitle: {audience}
 Platform: {platform}
 Üslup: {tone}
@@ -297,7 +266,7 @@ Platform: {platform}
 =========================
 🇬🇧 ENGLISH
 =========================
-Product: {product}
+Product Details: {product_details}
 Audience: {audience}
 Platform: {platform}
 Tone: {tone}
@@ -311,15 +280,15 @@ Tone: {tone}
 """
 
 # ---------------------------------------------------
-# ENGLISH PROMPT TRANSLATOR FOR SDXL
+# ENGLISH PROMPT TRANSLATOR
 # ---------------------------------------------------
-def translate_to_english_for_image(product, audience, platform, tone):
+def translate_to_english_for_image(product_details, audience, platform, tone):
     prompt = f"""
 You are a senior AI advertisement image prompt engineer.
 
 Translate the following into a HIGH-QUALITY English SDXL prompt:
 
-Product: {product}
+Product Details: {product_details}
 Audience: {audience}
 Platform: {platform}
 Tone: {tone}
@@ -331,14 +300,12 @@ Requirements:
 """
     r = text_model.generate_content(prompt)
     english = extract_text_safe(r)
-
     if not english or len(english) < 5:
-        english = f"SDXL product photo of {product}, targeted to {audience}, studio lighting, 4k, clean background."
-
+        english = f"SDXL product photo of {product_details}, targeted to {audience}, studio lighting, 4k, clean background."
     return english.strip()
 
 # ---------------------------------------------------
-# STABILITY SDXL – NEW 2024 API (WORKING)
+# STABILITY SDXL
 # ---------------------------------------------------
 STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 
@@ -347,7 +314,7 @@ def generate_image_stability(prompt):
 
     headers = {
         "Authorization": f"Bearer {STABILITY_API_KEY}",
-        "Accept": "image/*"   # 🔥 Stability'nin beklediği DOĞRU ACCEPT HEADER!
+        "Accept": "image/*"
     }
 
     files = {
@@ -362,12 +329,10 @@ def generate_image_stability(prompt):
     if response.status_code != 200:
         raise ValueError(f"Stability API Error: {response.text}")
 
-    # API RAW BYTE döndürüyor → direkt PNG
     return Image.open(BytesIO(response.content))
 
-
 # ---------------------------------------------------
-# COMPETITOR SCAN (TR / EN)
+# COMPETITOR SCAN
 # ---------------------------------------------------
 def scan_competitors(product_name, lang="tr"):
 
@@ -408,6 +373,7 @@ Output:
 
     r = text_model.generate_content(prompt)
     return extract_text_safe(r)
+
 # ---------------------------------------------------
 # UI – HEADER
 # ---------------------------------------------------
@@ -430,11 +396,17 @@ with st.container():
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown(f'<div class="field-label">{L["product"]}</div>', unsafe_allow_html=True)
-        product = st.text_input(
-            "product",
+        # ---------------------------
+        # PRODUCT DETAILS TEXT AREA
+        # ---------------------------
+        st.markdown(f'<div class="field-label">{L["product"]} Detayları</div>', unsafe_allow_html=True)
+        product_details = st.text_area(
+            "product_details",
             label_visibility="collapsed",
-            placeholder="Handmade soap" if ui_language != "Türkçe" else "El yapımı sabun"
+            placeholder="Ürününüz hakkında detaylı bilgi verin (özellikler, faydalar, kullanım alanları...)"
+            if ui_language == "Türkçe"
+            else "Provide detailed information about your product (features, benefits, usage, etc.)",
+            height=150
         )
 
         st.markdown(f'<div class="field-label">{L["platform"]}</div>', unsafe_allow_html=True)
@@ -449,15 +421,14 @@ with st.container():
         audience = st.text_input(
             "audience",
             label_visibility="collapsed",
-            placeholder="e.g. young adults, mothers" if ui_language != "Türkçe" else "Genç yetişkinler, anneler"
+            placeholder="Genç yetişkinler, anneler" if ui_language == "Türkçe" else "e.g. young adults, mothers"
         )
 
         st.markdown(f'<div class="field-label">{L["tone"]}</div>', unsafe_allow_html=True)
         tone = st.selectbox(
             "tone",
-            ["Playful", "Professional", "Friendly", "Persuasive"]
-            if ui_language != "Türkçe"
-            else ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"],
+            ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"] if ui_language == "Türkçe"
+            else ["Playful", "Professional", "Friendly", "Persuasive"],
             label_visibility="collapsed"
         )
 
@@ -474,11 +445,11 @@ with st.container():
 
     # --- TEXT GENERATION ---
     if btn_text:
-        if not product or not audience:
+        if not product_details or not audience:
             st.warning(L["warning_fill"])
         else:
             with st.spinner(L["adcopy_spinner"]):
-                p = build_ad_text_prompt(product, audience, platform, tone, output_mode)
+                p = build_ad_text_prompt(product_details, audience, platform, tone, output_mode)
                 res = text_model.generate_content(p)
                 txt = extract_text_safe(res)
 
@@ -489,11 +460,11 @@ with st.container():
 
     # --- VISUAL PROMPT GENERATION ---
     if btn_visual:
-        if not product or not audience:
+        if not product_details or not audience:
             st.warning(L["warning_fill"])
         else:
             with st.spinner(L["visual_spinner"]):
-                p = build_visual_prompt(product, audience, platform, tone, output_mode)
+                p = build_visual_prompt(product_details, audience, platform, tone, output_mode)
                 res = text_model.generate_content(p)
                 txt = extract_text_safe(res)
 
@@ -504,14 +475,14 @@ with st.container():
 
     # --- REAL STABILITY SDXL IMAGE GENERATION ---
     if btn_image:
-        if not product or not audience:
+        if not product_details or not audience:
             st.warning(L["warning_fill"])
         else:
             st.info(L["image_info"])
 
             # 1. Türkçe → İngilizce prompt çevir
             with st.spinner("Converting to English for SDXL..."):
-                english_prompt = translate_to_english_for_image(product, audience, platform, tone)
+                english_prompt = translate_to_english_for_image(product_details, audience, platform, tone)
 
             # 2. Stability SDXL üretim
             with st.spinner("Stability SDXL generating image..."):
@@ -538,7 +509,6 @@ with st.container():
                     st.error(f"Görsel üretimi hatası: {e}")
 
     st.markdown('</div>', unsafe_allow_html=True)
-
 
 # ---------------------------------------------------
 # COMPETITOR SCAN CARD
