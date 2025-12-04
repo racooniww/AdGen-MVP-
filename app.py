@@ -5,7 +5,7 @@ from io import BytesIO
 from PIL import Image
 
 # ---------------------------------------------------
-# PAGE CONFIG
+# PAGE CONFIG (Logo added)
 # ---------------------------------------------------
 st.set_page_config(
     page_title="AdGen – AI Ad Generator",
@@ -38,9 +38,7 @@ LANG = {
         "visual_spinner": "Görsel tasarım promptu hazırlanıyor...",
         "comp_scan_spinner": "Web üzerinden rakipler analiz ediliyor...",
         "comp_analysis_spinner": "Rakip analizi hazırlanıyor...",
-        "image_info": "AI görsel üretimi Stability SDXL ile yapılacak.",
-        "extra_prompt_label": "Görseli iyileştirmek için ek yönlendirme (opsiyonel)",
-        "extra_prompt_placeholder": "Örn: daha sıcak tonlar, ürüne yakın çekim, arka plan sade..."
+        "image_info": "AI görsel üretimi Stability SDXL ile yapılacak."
     },
     "en": {
         "title": "AdGen – AI Advertising Generator",
@@ -63,9 +61,7 @@ LANG = {
         "visual_spinner": "Generating visual design prompt...",
         "comp_scan_spinner": "Scanning competitors using the web...",
         "comp_analysis_spinner": "Preparing competitor analysis...",
-        "image_info": "AI image generation will use Stability SDXL.",
-        "extra_prompt_label": "Extra instructions to refine the image (optional)",
-        "extra_prompt_placeholder": "e.g. warmer colors, close-up product shot, minimal background..."
+        "image_info": "AI image generation will use Stability SDXL."
     }
 }
 
@@ -97,7 +93,7 @@ genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 text_model = genai.GenerativeModel("models/gemini-2.5-flash")
 
 # ---------------------------------------------------
-# CUSTOM CSS
+# CSS (logo header)
 # ---------------------------------------------------
 st.markdown("""
 <style>
@@ -121,13 +117,10 @@ st.markdown("""
     font-size: 2.3rem;
     font-weight: 800;
     color: #111827;
-    margin: 0;
-    padding: 0;
 }
 
 .header-subtitle {
     text-align: center;
-    margin-top: -6px;
     font-size: 1rem;
     color: #4b5563;
 }
@@ -139,12 +132,11 @@ st.markdown("""
     background: linear-gradient(90deg, #ff4d8b, #7a2bff);
     border-radius: 50px;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------
-# HEADER (LOGO + TITLE + SUBTITLE)
+# HEADER (Logo + Title)
 # ---------------------------------------------------
 st.markdown(f"""
 <div class="header-container">
@@ -199,29 +191,32 @@ Tone: {tone}
 (TÜRKÇE VE İNGİLİZCE İKİ DİLDE ÇIKTI VER)
 
 Ürün: {product_details}
-Hedef Kitle / Audience: {audience}
+Audience: {audience}
 Platform: {platform}
-Üslup / Tone: {tone}
+Tone: {tone}
 """
 
 def build_visual_prompt(product_details, audience, platform, tone, mode):
     return f"""
-Describe the advertising visual for:
+Describe the advertising visual:
 
 Product: {product_details}
 Audience: {audience}
 Platform: {platform}
 Tone: {tone}
 
-Include composition, lighting, color palette, angle, and 1 SDXL prompt.
+Include composition, lighting, color palette, camera angle and 1 SDXL prompt.
 """
 
-def translate_to_english_for_image(product_details, audience, platform, tone):
+# ---------------------------------------------------
+# TRANSLATE IMAGE PROMPT
+# ---------------------------------------------------
+def translate_to_english_for_image(details, audience, platform, tone):
     r = text_model.generate_content(
-        f"Write an SDXL English image prompt for: {product_details}, audience {audience}, platform {platform}, tone {tone}."
+        f"Write an SDXL prompt for: {details}, audience {audience}, tone {tone}."
     )
     txt = extract_text_safe(r)
-    return txt if txt else f"SDXL product photo of {product_details}."
+    return txt if txt else f"SDXL photo of {details}."
 
 # ---------------------------------------------------
 # STABILITY IMAGE GENERATION
@@ -232,7 +227,6 @@ def generate_image_stability(prompt):
     url = "https://api.stability.ai/v2beta/stable-image/generate/core"
 
     headers = {"Authorization": f"Bearer {STABILITY_API_KEY}", "Accept": "image/*"}
-
     files = {
         "prompt": (None, prompt),
         "mode": (None, "text-to-image"),
@@ -241,7 +235,6 @@ def generate_image_stability(prompt):
     }
 
     r = requests.post(url, headers=headers, files=files)
-
     if r.status_code != 200:
         raise ValueError(r.text)
 
@@ -250,138 +243,112 @@ def generate_image_stability(prompt):
 # ---------------------------------------------------
 # COMPETITOR ANALYSIS
 # ---------------------------------------------------
-def scan_competitors(product_name, lang="tr"):
-    prompt = f"""
-Competitive analysis for: {product_name}
+def scan_competitors(name, lang="tr"):
+    r = text_model.generate_content(f"""
+Analyze competitors for: {name}
 
+Return:
 - Market competitors
-- Message themes
-- Advertising angles
-- Tone patterns
-- Industry trends
+- Themes
+- Ad angles
+- Trends
 - Market gaps
-- Differentiation suggestions
-"""
-    r = text_model.generate_content(prompt)
+- Differentiation ideas
+""")
     return extract_text_safe(r)
 
 # ---------------------------------------------------
 # MAIN UI
 # ---------------------------------------------------
-with st.container():
-    st.markdown('<div class="adgen-card">', unsafe_allow_html=True)
+st.markdown("### Product / Ürün Bilgileri")
 
-    col1, col2 = st.columns(2)
+col1, col2 = st.columns(2)
 
-    with col1:
-        st.markdown(f"### {L['product']} Detayları")
-        product_details = st.text_area(
-            label="",
-            key="product_details",
-            placeholder="Enter product details..." if ui_language != "Türkçe" else "Ürününüzü detaylıca açıklayın...",
-            height=150,
-            label_visibility="collapsed"
-        )
+with col1:
+    st.write("*Ürün / Product Details*")
+    product_details = st.text_area("pd", placeholder="Enter product details...", height=150)
 
-        st.markdown(f"### {L['platform']}")
-        platform = st.selectbox(
-            label="",
-            options=["Instagram", "TikTok", "LinkedIn", "Facebook"],
-            key="platform",
-            label_visibility="collapsed"
-        )
+    st.write("*Platform*")
+    platform = st.selectbox("platform", ["Instagram", "TikTok", "LinkedIn", "Facebook"])
 
-    with col2:
-        st.markdown(f"### {L['audience']}")
-        audience = st.text_input(
-            label="",
-            key="audience",
-            placeholder="young adults" if ui_language != "Türkçe" else "genç yetişkinler",
-            label_visibility="collapsed"
-        )
+with col2:
+    st.write("*Audience / Hedef Kitle*")
+    audience = st.text_input("aud", placeholder="young adults")
 
-       st.markdown(f"### {L['tone']}")
+    st.write("*Tone / Üslup*")
 
-if ui_language == "Türkçe":
-    tone_options = ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"]
-else:
-    tone_options = ["Playful", "Professional", "Friendly", "Persuasive"]
+    # ---------------------------------------------------
+    # FIXED: Tone list now changes with language
+    # ---------------------------------------------------
+    if ui_language == "Türkçe":
+        tone_options = ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"]
+    else:
+        tone_options = ["Playful", "Professional", "Friendly", "Persuasive"]
 
-tone = st.selectbox("tone", tone_options)
+    tone = st.selectbox("tone", tone_options)
 
-    st.markdown("---")
+# --- ACTION BUTTONS ---
+st.markdown("---")
+c1, c2, c3 = st.columns(3)
 
-    c1, c2, c3 = st.columns(3)
-    btn_text = c1.button(L["generate_text"])
-    btn_visual = c2.button(L["generate_prompt"])
+btn_text = c1.button(L["generate_text"])
+btn_visual = c2.button(L["generate_prompt"])
 
-    # Kullanıcıya gösterilen custom prompt alanı (isim değişti)
-    user_custom_prompt = st.text_area(
-        label=L["extra_prompt_label"],
-        key="custom_sdxl",
-        placeholder=L["extra_prompt_placeholder"],
-        height=100
-    )
+# CUSTOM USER PROMPT FIELD
+user_custom_prompt = st.text_area(
+    "custom_prompt",
+    placeholder="Optional: Enter your own custom SDXL prompt...",
+    height=90
+)
 
-    btn_image = c3.button(L["generate_image"])
-
-    # --- AD TEXT ---
-    if btn_text:
-        with st.spinner(L["adcopy_spinner"]):
-            p = build_ad_text_prompt(product_details, audience, platform, tone, output_mode)
-            r = text_model.generate_content(p)
-            st.write(extract_text_safe(r))
-
-    # --- VISUAL PROMPT ---
-    if btn_visual:
-        with st.spinner(L["visual_spinner"]):
-            p = build_visual_prompt(product_details, audience, platform, tone, output_mode)
-            r = text_model.generate_content(p)
-            st.write(extract_text_safe(r))
-
-    # --- IMAGE GENERATION ---
-    if btn_image:
-        with st.spinner("Generating AI Image..."):
-
-            # 1) Her durumda baz SDXL prompt'u oluştur
-            base_prompt = translate_to_english_for_image(product_details, audience, platform, tone)
-
-            # 2) Kullanıcı ekstra bir şey yazdıysa bunu baz prompt'un ÜSTÜNE ekle
-            if user_custom_prompt and user_custom_prompt.strip():
-                final_prompt = (
-                    base_prompt
-                    + "\n\nRefinement / extra details: "
-                    + user_custom_prompt.strip()
-                )
-            else:
-                final_prompt = base_prompt
-
-            img = generate_image_stability(final_prompt)
-            st.image(img, use_column_width=True)
-
-            buf = BytesIO()
-            img.save(buf, format="PNG")
-            st.download_button(L["down_img"], buf.getvalue(), "adgen_sdxl.png")
-
-    st.markdown('</div>', unsafe_allow_html=True)
+btn_image = c3.button(L["generate_image"])
 
 # ---------------------------------------------------
-# COMPETITOR CARD
+# TEXT GENERATION
 # ---------------------------------------------------
-with st.container():
-    st.markdown('<div class="adgen-card">', unsafe_allow_html=True)
+if btn_text:
+    with st.spinner(L["adcopy_spinner"]):
+        p = build_ad_text_prompt(product_details, audience, platform, tone, output_mode)
+        r = text_model.generate_content(p)
+        st.write(extract_text_safe(r))
 
-    st.markdown(f"### {L['competitor_scan']}")
-    competitor_name = st.text_input(
-        label="",
-        key="competitor_name",
-        placeholder=L["competitor_placeholder"],
-        label_visibility="collapsed"
-    )
+# ---------------------------------------------------
+# VISUAL PROMPT GENERATION
+# ---------------------------------------------------
+if btn_visual:
+    with st.spinner(L["visual_spinner"]):
+        p = build_visual_prompt(product_details, audience, platform, tone, output_mode)
+        r = text_model.generate_content(p)
+        st.write(extract_text_safe(r))
 
-    if st.button("🔍 " + L["btn_scan"]):
-        with st.spinner(L["comp_scan_spinner"]):
-            res = scan_competitors(competitor_name, comp_lang)
-            st.write(res)
+# ---------------------------------------------------
+# IMAGE GENERATION
+# ---------------------------------------------------
+if btn_image:
+    with st.spinner("Generating AI Image..."):
 
-    st.markdown('</div>', unsafe_allow_html=True)
+        final_prompt = (
+            user_custom_prompt.strip()
+            if user_custom_prompt
+            else translate_to_english_for_image(product_details, audience, platform, tone)
+        )
+
+        img = generate_image_stability(final_prompt)
+        st.image(img, use_column_width=True)
+
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        st.download_button(L["down_img"], buf.getvalue(), "adgen_sdxl.png")
+
+# ---------------------------------------------------
+# COMPETITOR SCAN
+# ---------------------------------------------------
+st.markdown("---")
+st.write(f"### {L['competitor_scan']}")
+
+competitor_name = st.text_input("compet", placeholder=L["competitor_placeholder"])
+
+if st.button("🔍 " + L["btn_scan"]):
+    with st.spinner(L["comp_scan_spinner"]):
+        res = scan_competitors(competitor_name, comp_lang)
+        st.write(res)
