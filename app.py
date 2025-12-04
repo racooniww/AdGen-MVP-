@@ -10,13 +10,14 @@ from PIL import Image
 # ---------------------------------------------------
 st.set_page_config(
     page_title="AdGen – AI Ad Generator",
-    page_icon="🎯",
+    page_icon="page_icon="https://github.com/racooniww/AdGen-MVP-/blob/e9419ddea7acce20c77c011ead0f5a7aa562884d/adgen_logo.jpg"
+",
     layout="centered"
 )
 
 # ---------------------------------------------------
-# ========== LOGO URL (BURAYA RAW LINKİNİ YAPIŞTIR) ==========
-# ÖRN: "https://raw.githubusercontent.com/kullanici/AdGen-MVP/main/adgen_logo.png"
+# ========== LOGO URL ==========
+# ÖRN: "https://github.com/racooniww/AdGen-MVP-/blob/e9419ddea7acce20c77c011ead0f5a7aa562884d/adgen_logo.jpg"
 # ---------------------------------------------------
 LOGO_URL = "BURAYA_RAW_LOGO_URL"
 
