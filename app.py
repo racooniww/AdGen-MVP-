@@ -1,7 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
 import requests
-import base64
 from io import BytesIO
 from PIL import Image
 
@@ -39,7 +38,9 @@ LANG = {
         "visual_spinner": "Görsel tasarım promptu hazırlanıyor...",
         "comp_scan_spinner": "Web üzerinden rakipler analiz ediliyor...",
         "comp_analysis_spinner": "Rakip analizi hazırlanıyor...",
-        "image_info": "AI görsel üretimi Stability SDXL ile yapılacak."
+        "image_info": "AI görsel üretimi Stability SDXL ile yapılacak.",
+        "extra_prompt_label": "Görseli iyileştirmek için ek yönlendirme (opsiyonel)",
+        "extra_prompt_placeholder": "Örn: daha sıcak tonlar, ürüne yakın çekim, arka plan sade..."
     },
     "en": {
         "title": "AdGen – AI Advertising Generator",
@@ -62,7 +63,9 @@ LANG = {
         "visual_spinner": "Generating visual design prompt...",
         "comp_scan_spinner": "Scanning competitors using the web...",
         "comp_analysis_spinner": "Preparing competitor analysis...",
-        "image_info": "AI image generation will use Stability SDXL."
+        "image_info": "AI image generation will use Stability SDXL.",
+        "extra_prompt_label": "Extra instructions to refine the image (optional)",
+        "extra_prompt_placeholder": "e.g. warmer colors, close-up product shot, minimal background..."
     }
 }
 
@@ -273,20 +276,37 @@ with st.container():
     with col1:
         st.markdown(f"### {L['product']} Detayları")
         product_details = st.text_area(
-            "product_details",
-            placeholder="Enter product details...",
-            height=150
+            label="",
+            key="product_details",
+            placeholder="Enter product details..." if ui_language != "Türkçe" else "Ürününüzü detaylıca açıklayın...",
+            height=150,
+            label_visibility="collapsed"
         )
 
         st.markdown(f"### {L['platform']}")
-        platform = st.selectbox("platform", ["Instagram", "TikTok", "LinkedIn", "Facebook"])
+        platform = st.selectbox(
+            label="",
+            options=["Instagram", "TikTok", "LinkedIn", "Facebook"],
+            key="platform",
+            label_visibility="collapsed"
+        )
 
     with col2:
         st.markdown(f"### {L['audience']}")
-        audience = st.text_input("audience", placeholder="young adults")
+        audience = st.text_input(
+            label="",
+            key="audience",
+            placeholder="young adults" if ui_language != "Türkçe" else "genç yetişkinler",
+            label_visibility="collapsed"
+        )
 
         st.markdown(f"### {L['tone']}")
-        tone = st.selectbox("tone", ["Playful", "Professional", "Friendly", "Persuasive"])
+        tone = st.selectbox(
+            label="",
+            options=["Playful", "Professional", "Friendly", "Persuasive"],
+            key="tone",
+            label_visibility="collapsed"
+        )
 
     st.markdown("---")
 
@@ -294,10 +314,11 @@ with st.container():
     btn_text = c1.button(L["generate_text"])
     btn_visual = c2.button(L["generate_prompt"])
 
-    # New: User-custom prompt for image
+    # Kullanıcıya gösterilen custom prompt alanı (isim değişti)
     user_custom_prompt = st.text_area(
-        "custom_sdxl",
-        placeholder="Optional: Enter your own custom image prompt...",
+        label=L["extra_prompt_label"],
+        key="custom_sdxl",
+        placeholder=L["extra_prompt_placeholder"],
         height=100
     )
 
@@ -321,11 +342,18 @@ with st.container():
     if btn_image:
         with st.spinner("Generating AI Image..."):
 
-            final_prompt = (
-                user_custom_prompt.strip()
-                if user_custom_prompt
-                else translate_to_english_for_image(product_details, audience, platform, tone)
-            )
+            # 1) Her durumda baz SDXL prompt'u oluştur
+            base_prompt = translate_to_english_for_image(product_details, audience, platform, tone)
+
+            # 2) Kullanıcı ekstra bir şey yazdıysa bunu baz prompt'un ÜSTÜNE ekle
+            if user_custom_prompt and user_custom_prompt.strip():
+                final_prompt = (
+                    base_prompt
+                    + "\n\nRefinement / extra details: "
+                    + user_custom_prompt.strip()
+                )
+            else:
+                final_prompt = base_prompt
 
             img = generate_image_stability(final_prompt)
             st.image(img, use_column_width=True)
@@ -343,7 +371,12 @@ with st.container():
     st.markdown('<div class="adgen-card">', unsafe_allow_html=True)
 
     st.markdown(f"### {L['competitor_scan']}")
-    competitor_name = st.text_input("competitor_name", placeholder=L["competitor_placeholder"])
+    competitor_name = st.text_input(
+        label="",
+        key="competitor_name",
+        placeholder=L["competitor_placeholder"],
+        label_visibility="collapsed"
+    )
 
     if st.button("🔍 " + L["btn_scan"]):
         with st.spinner(L["comp_scan_spinner"]):
