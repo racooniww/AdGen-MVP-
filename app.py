@@ -228,22 +228,23 @@ STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 def generate_image_stability(prompt):
     url = "https://api.stability.ai/v2beta/stable-image/generate/core"
 
-    headers = {"Authorization": f"Bearer {STABILITY_API_KEY}", "Accept": "image/*"}
-
-    files = {
-        "prompt": (None, prompt),
-        "mode": (None, "text-to-image"),
-        "output_format": (None, "png"),
-        "aspect_ratio": (None, "1:1")
+    headers = {
+        "Authorization": f"Bearer {STABILITY_API_KEY}",
+        "Accept": "image/*"
     }
 
-    r = requests.post(url, headers=headers, files=files)
+    data = {
+        "prompt": prompt,
+        "output_format": "png",
+        "mode": "text-to-image"
+    }
 
-    if r.status_code != 200:
-        raise ValueError(r.text)
+    response = requests.post(url, headers=headers, data=data)
 
-    return Image.open(BytesIO(r.content))
+    if response.status_code != 200:
+        raise ValueError(f"Stability API Error: {response.text}")
 
+    return Image.open(BytesIO(response.content))
 # ---------------------------------------------------
 # COMPETITOR ANALYSIS
 # ---------------------------------------------------
