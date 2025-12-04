@@ -229,7 +229,7 @@ def generate_image_stability(prompt):
     url = "https://api.stability.ai/v2beta/stable-image/generate/core"
 
     headers = {
-        "Authorization": f"Bearer {STABILITY_API_KEY}",
+        "Authorization": f"Bearer " + STABILITY_API_KEY,
         "Accept": "image/*"
     }
 
@@ -240,6 +240,9 @@ def generate_image_stability(prompt):
     }
 
     response = requests.post(url, headers=headers, data=data)
+
+    # -------- DEBUG SATIRI --------
+    st.write("DEBUG Stability Response:", response.text)
 
     if response.status_code != 200:
         raise ValueError(f"Stability API Error: {response.text}")
