@@ -300,13 +300,14 @@ with st.container():
             label_visibility="collapsed"
         )
 
-        st.markdown(f"### {L['tone']}")
-        tone = st.selectbox(
-            label="",
-            options=["Playful", "Professional", "Friendly", "Persuasive"],
-            key="tone",
-            label_visibility="collapsed"
-        )
+       st.markdown(f"### {L['tone']}")
+
+if ui_language == "Türkçe":
+    tone_options = ["Eğlenceli", "Profesyonel", "Samimi", "İkna Edici"]
+else:
+    tone_options = ["Playful", "Professional", "Friendly", "Persuasive"]
+
+tone = st.selectbox("tone", tone_options)
 
     st.markdown("---")
 
