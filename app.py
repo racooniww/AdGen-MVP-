@@ -137,13 +137,6 @@ st.markdown("""
     border-radius: 50px;
 }
 
-.adgen-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 1rem;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.07);
-    margin-bottom: 1.4rem;
-}
 </style>
 """, unsafe_allow_html=True)
 
