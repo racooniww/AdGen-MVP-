@@ -10,16 +10,9 @@ from PIL import Image
 # ---------------------------------------------------
 st.set_page_config(
     page_title="AdGen – AI Ad Generator",
-    page_icon="page_icon="https://github.com/racooniww/AdGen-MVP-/blob/e9419ddea7acce20c77c011ead0f5a7aa562884d/adgen_logo.jpg"
-",
+    page_icon="https://raw.githubusercontent.com/racooniww/AdGen-MVP-/main/adgen_logo.jpg",
     layout="centered"
 )
-
-# ---------------------------------------------------
-# ========== LOGO URL ==========
-# ÖRN: "https://github.com/racooniww/AdGen-MVP-/blob/e9419ddea7acce20c77c011ead0f5a7aa562884d/adgen_logo.jpg"
-# ---------------------------------------------------
-LOGO_URL = "BURAYA_RAW_LOGO_URL"
 
 # ---------------------------------------------------
 # MULTI-LANGUAGE TEXTS
@@ -36,6 +29,7 @@ LANG = {
         "generate_text": "Reklam Metni Üret",
         "generate_prompt": "Görsel Tasarım Promptu",
         "generate_image": "AI Görseli Üret",
+        "manual_prompt": "Manuel Görsel Promptu (Kullanıcı Düzenleyebilir)",
         "competitor_scan": "Rakip Analizi",
         "competitor_placeholder": "Rakip analizi için ürün / kategori adı...",
         "output_competitor": "Rakip Analizi Sonuçları",
@@ -45,8 +39,7 @@ LANG = {
         "adcopy_spinner": "Reklam metni üretiliyor...",
         "visual_spinner": "Görsel tasarım promptu hazırlanıyor...",
         "comp_scan_spinner": "Web üzerinden rakipler analiz ediliyor...",
-        "image_info": "AI görsel üretimi Stability SDXL ile yapılacak.",
-        "retry_prompt": "Yeni bir görsel promptu girerek tekrar görsel üretebilirsiniz:"
+        "image_info": "Bu görsel Stability AI SDXL ile üretilecektir."
     },
     "en": {
         "title": "AdGen – AI Advertising Generator",
@@ -59,6 +52,7 @@ LANG = {
         "generate_text": "Generate Ad Copy",
         "generate_prompt": "Generate Visual Prompt",
         "generate_image": "Generate AI Image",
+        "manual_prompt": "Manual Image Prompt (User Editable)",
         "competitor_scan": "Competitor Scan",
         "competitor_placeholder": "Product / category name for competitor analysis...",
         "output_competitor": "Competitor Analysis Result",
@@ -67,19 +61,28 @@ LANG = {
         "btn_scan": "Scan Competitors",
         "adcopy_spinner": "Generating ad copy...",
         "visual_spinner": "Generating visual design prompt...",
-        "comp_scan_spinner": "Scanning competitors using the web...",
-        "image_info": "AI image generation will use Stability SDXL.",
-        "retry_prompt": "Enter a new visual prompt to regenerate:"
+        "comp_scan_spinner": "Scanning competitors...",
+        "image_info": "This image will be generated using Stability AI SDXL."
     }
 }
 
 # ---------------------------------------------------
 # LANGUAGE SELECTOR
 # ---------------------------------------------------
-ui_language = st.selectbox("Language / Dil", ["Türkçe", "English"])
+ui_language = st.selectbox("Language / Dil", ["Türkçe", "English", "Dual (TR + EN Output)"])
 
-L = LANG["tr"] if ui_language == "Türkçe" else LANG["en"]
-mode = "tr" if ui_language == "Türkçe" else "en"
+if ui_language == "Türkçe":
+    L = LANG["tr"]
+    output_mode = "tr"
+    comp_lang = "tr"
+elif ui_language == "English":
+    L = LANG["en"]
+    output_mode = "en"
+    comp_lang = "en"
+else:
+    L = LANG["tr"]
+    output_mode = "dual"
+    comp_lang = "tr"
 
 # ---------------------------------------------------
 # GEMINI CONFIG
@@ -91,16 +94,19 @@ text_model = genai.GenerativeModel("models/gemini-2.5-flash")
 # CUSTOM CSS
 # ---------------------------------------------------
 def inject_custom_css():
-    st.markdown("""
+    st.markdown(
+        """
         <style>
-        .stApp { background: #f5f6fc; font-family: -apple-system, BlinkMacSystemFont; }
-        .adgen-header { text-align: center; margin-bottom: 1rem; }
-        .adgen-title { font-size: 2rem; font-weight: 800; color: #222; }
-        .adgen-subtitle { color: #666; font-size: 1rem; margin-top: -5px; }
-        .output-box { background:#fff; padding:1rem; border-radius:10px; border:1px solid #ddd; margin-top:1rem; }
-        .stButton>button { border-radius:999px; padding:.5rem 1.2rem; border:1px solid #ddd; background:white; }
+        .stApp { background: #f6f8fc; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+        .adgen-header { text-align: center; margin-bottom: 1.4rem; }
+        .adgen-title { font-size: 2.1rem; font-weight: 800; color: #111827; }
+        .adgen-subtitle { font-size: 1rem; color: #4b5563; margin-top: -6px; }
+        .field-label { font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 0.25rem; }
+        .output-box { margin-top: 1.2rem; padding: 1rem 1.1rem; border-radius: 0.9rem; background: #f9fafb; border: 1px solid #e5e7eb; }
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
 inject_custom_css()
 
@@ -111,34 +117,36 @@ def extract_text_safe(response):
     if hasattr(response, "text") and response.text:
         return response.text.strip()
     if hasattr(response, "candidates") and response.candidates:
-        parts = response.candidates[0].content.parts
-        if parts and hasattr(parts[0], "text"):
-            return parts[0].text.strip()
+        cand = response.candidates[0]
+        if hasattr(cand, "content") and hasattr(cand.content, "parts"):
+            parts = cand.content.parts
+            if parts and hasattr(parts[0], "text"):
+                return parts[0].text.strip()
     return ""
 
 # ---------------------------------------------------
-# TEXT PROMPT GENERATION
+# PROMPT BUILDERS
 # ---------------------------------------------------
-def build_ad_prompt(details, audience, platform, tone, mode):
+def build_ad_text_prompt(product, audience, platform, tone, mode):
     if mode == "tr":
         return f"""
 Sen bir dijital pazarlama uzmanısın.
 
-Ürün Detayları: {details}
+Ürün: {product}
 Hedef kitle: {audience}
 Platform: {platform}
 Üslup: {tone}
 
 - 3 başlık
-- 2 reklam metni
-- slogan
-- hashtag seti
+- 2 reklam metni (A/B)
+- 1 slogan
+- 8 hashtag
 """
-    else:
+    if mode == "en":
         return f"""
-You are a senior digital marketing strategist.
+You are a senior digital marketer.
 
-Product Details: {details}
+Product: {product}
 Audience: {audience}
 Platform: {platform}
 Tone: {tone}
@@ -146,53 +154,50 @@ Tone: {tone}
 - 3 headlines
 - 2 ad copies
 - 1 slogan
-- hashtags
+- 8 hashtags
 """
+    return f"TR + EN reklam içerikleri üret.\nÜrün: {product}\nAudience: {audience}"
 
-# ---------------------------------------------------
-# VISUAL PROMPT BUILD
-# ---------------------------------------------------
-def build_visual_prompt(details, audience, platform, tone):
+def build_visual_prompt(product, audience, platform, tone, mode):
     return f"""
-You are an AI advertising visual designer.
+Generate a visual design description.
 
-Product: {details}
+Product: {product}
 Audience: {audience}
 Platform: {platform}
 Tone: {tone}
 
-Describe:
-- composition
-- lighting
-- style
-- camera angle
-- mood
-- one final SDXL ready English prompt
+1) Composition
+2) Background
+3) Lighting
+4) Colors
+5) Camera angle
+6) SDXL one-line prompt
 """
 
 # ---------------------------------------------------
-# SDXL TRANSLATOR
+# TRANSLATE FOR SDXL
 # ---------------------------------------------------
-def translate_to_sdxl(details, audience, platform, tone):
-    r = text_model.generate_content(f"""
-Convert the following into a clean ENGLISH SDXL prompt:
+def translate_to_english_for_image(product, audience, platform, tone):
+    prompt = f"""
+Convert this into a professional English SDXL image prompt:
 
-Product: {details}
+Product: {product}
 Audience: {audience}
 Platform: {platform}
 Tone: {tone}
 
-Make it studio quality.
-""")
-    out = extract_text_safe(r)
-    return out if len(out) > 10 else f"{details}, product shot, studio light, 4k"
+Return ONLY the English SDXL prompt.
+"""
+    r = text_model.generate_content(prompt)
+    return extract_text_safe(r)
 
 # ---------------------------------------------------
 # STABILITY SDXL
 # ---------------------------------------------------
 STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 
-def generate_sdxl(prompt):
+def generate_image_stability(prompt):
     url = "https://api.stability.ai/v2beta/stable-image/generate/core"
 
     headers = {
@@ -202,55 +207,31 @@ def generate_sdxl(prompt):
 
     files = {
         "prompt": (None, prompt),
-        "output_format": (None, "png"),
         "mode": (None, "text-to-image"),
+        "output_format": (None, "png"),
         "aspect_ratio": (None, "1:1")
     }
 
-    r = requests.post(url, headers=headers, files=files)
+    response = requests.post(url, headers=headers, files=files)
 
-    if r.status_code != 200:
-        raise ValueError(f"Stability API Error: {r.text}")
+    if response.status_code != 200:
+        raise ValueError(f"Stability API Error: {response.text}")
 
-    return Image.open(BytesIO(r.content))
+    return Image.open(BytesIO(response.content))
 
 # ---------------------------------------------------
 # COMPETITOR ANALYSIS
 # ---------------------------------------------------
-def scan_competitors(name, lang="tr"):
-    prompt = f"""
-You are a competitive intelligence analyst.
-
-Analyze competitor patterns for: {name}
-
-Output:
-- competitor brand types
-- messaging patterns
-- slogans
-- angles used in ads
-- category trends
-- market gaps
-- differentiation strategies
-"""
+def scan_competitors(product, lang):
+    prompt = f"Analyze competitor patterns for: {product}. No URLs."
     r = text_model.generate_content(prompt)
     return extract_text_safe(r)
 
 # ---------------------------------------------------
-# UI – LOGO
+# HEADER WITH LOGO
 # ---------------------------------------------------
-if LOGO_URL:
-    st.markdown(
-        f"""
-        <div style="text-align:center; margin-top:10px; margin-bottom:10px;">
-            <img src="{LOGO_URL}" width="165">
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+st.image("https://raw.githubusercontent.com/racooniww/AdGen-MVP-/main/adgen_logo.jpg", width=150)
 
-# ---------------------------------------------------
-# UI – HEADER
-# ---------------------------------------------------
 st.markdown(
     f"""
     <div class="adgen-header">
@@ -262,91 +243,50 @@ st.markdown(
 )
 
 # ---------------------------------------------------
-# MAIN INPUT FIELDS
+# MAIN INPUTS
 # ---------------------------------------------------
-details = st.text_area(L["product"], height=120)
-audience = st.text_input(L["audience"])
-platform = st.selectbox(L["platform"], ["Instagram","TikTok","Facebook","LinkedIn"])
-tone = st.selectbox(
-    L["tone"],
-    ["Eğlenceli","Profesyonel","Samimi","İkna Edici"] if mode=="tr"
-    else ["Playful","Professional","Friendly","Persuasive"]
+product = st.text_area("Product Details", height=150)
+audience = st.text_input("Audience")
+platform = st.selectbox("Platform", ["Instagram", "TikTok", "LinkedIn", "Facebook"])
+tone = st.selectbox("Tone", ["Playful", "Professional", "Friendly", "Persuasive"])
+
+# USER MANUAL PROMPT (NEW)
+manual_prompt = st.text_area(
+    L["manual_prompt"],
+    placeholder="You can manually edit the prompt before generating the image.",
+    height=120
 )
 
-st.markdown("---")
-
+# ---------------------------------------------------
 # BUTTONS
-b1, b2, b3 = st.columns(3)
-gen_text = b1.button(L["generate_text"])
-gen_vp   = b2.button(L["generate_prompt"])
-gen_img  = b3.button(L["generate_image"])
-
 # ---------------------------------------------------
-# TEXT GENERATION
-# ---------------------------------------------------
-if gen_text:
-    if not details or not audience:
-        st.warning(L["warning_fill"])
-    else:
-        with st.spinner(L["adcopy_spinner"]):
-            p = build_ad_prompt(details, audience, platform, tone, mode)
-            r = text_model.generate_content(p)
-            st.markdown('<div class="output-box">', unsafe_allow_html=True)
-            st.write(extract_text_safe(r))
-            st.markdown('</div>', unsafe_allow_html=True)
+c1, c2, c3 = st.columns(3)
 
-# ---------------------------------------------------
-# VISUAL PROMPT GENERATION
-# ---------------------------------------------------
-if gen_vp:
-    if not details:
-        st.warning(L["warning_fill"])
-    else:
-        with st.spinner(L["visual_spinner"]):
-            p = build_visual_prompt(details, audience, platform, tone)
-            r = text_model.generate_content(p)
-            st.markdown('<div class="output-box">', unsafe_allow_html=True)
-            st.write(extract_text_safe(r))
-            st.markdown('</div>', unsafe_allow_html=True)
+if c1.button(L["generate_text"]):
+    prompt = build_ad_text_prompt(product, audience, platform, tone, output_mode)
+    r = text_model.generate_content(prompt)
+    st.write(extract_text_safe(r))
 
-# ---------------------------------------------------
-# IMAGE GENERATION + CUSTOM PROMPT FROM USER
-# ---------------------------------------------------
-if gen_img:
-    if not details:
-        st.warning(L["warning_fill"])
-    else:
-        st.info(L["image_info"])
+if c2.button(L["generate_prompt"]):
+    prompt = build_visual_prompt(product, audience, platform, tone, output_mode)
+    r = text_model.generate_content(prompt)
+    st.write(extract_text_safe(r))
 
-        # 1) Base English prompt
-        base_prompt = translate_to_sdxl(details, audience, platform, tone)
+if c3.button(L["generate_image"]):
+    final_prompt = manual_prompt.strip()
 
-        st.subheader("SDXL Prompt")
-        st.write(base_prompt)
+    if final_prompt == "":
+        final_prompt = translate_to_english_for_image(product, audience, platform, tone)
 
-        # 2) User override prompt
-        custom_prompt = st.text_area(L["retry_prompt"], "", height=100)
+    try:
+        img = generate_image_stability(final_prompt)
+        st.image(img)
 
-        final_prompt = custom_prompt if len(custom_prompt.strip()) > 5 else base_prompt
-
-        # 3) Generate Image
-        with st.spinner("SDXL generating..."):
-            try:
-                img = generate_sdxl(final_prompt)
-
-                st.image(img, use_column_width=True)
-
-                buf = BytesIO()
-                img.save(buf, format="PNG")
-                st.download_button(
-                    L["down_img"],
-                    buf.getvalue(),
-                    file_name="adgen_sdxl.png",
-                    mime="image/png"
-                )
-
-            except Exception as e:
-                st.error(f"Görsel üretimi hatası: {e}")
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        st.download_button(L["down_img"], buf.getvalue(), "adgen.png")
+    except Exception as e:
+        st.error(f"Görsel üretimi hatası: {e}")
 
 # ---------------------------------------------------
 # COMPETITOR SCAN
@@ -354,15 +294,8 @@ if gen_img:
 st.markdown("---")
 st.subheader(L["competitor_scan"])
 
-comp = st.text_input("comp_scan", L["competitor_placeholder"])
+comp = st.text_input("competitor", placeholder=L["competitor_placeholder"])
 
-if st.button("🔍 " + L["btn_scan"]):
-    if not comp:
-        st.warning(L["warning_fill"])
-    else:
-        with st.spinner(L["comp_scan_spinner"]):
-            result = scan_competitors(comp, mode)
-
-        st.markdown('<div class="output-box">', unsafe_allow_html=True)
-        st.write(result)
-        st.markdown('</div>', unsafe_allow_html=True)
+if st.button(L["btn_scan"]):
+    result = scan_competitors(comp, comp_lang)
+    st.write(result)
