@@ -1,4 +1,5 @@
 AdGen: AI-Powered Advertising Content Generator
+	
 	1.	Proje Tanımı
 AdGen, küçük ve orta ölçekli işletmelerin (KOBİ’lerin) dijital pazarlama süreçlerini kolaylaştırmak için geliştirilmiş yapay zekâ tabanlı bir reklam üretim platformudur.
 
