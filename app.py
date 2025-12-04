@@ -137,6 +137,13 @@ st.markdown("""
     border-radius: 50px;
 }
 
+.adgen-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.07);
+    margin-bottom: 1.4rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -225,29 +232,25 @@ def translate_to_english_for_image(product_details, audience, platform, tone):
 # ---------------------------------------------------
 STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 
-def generate_image_stability(prompt: str):
+def generate_image_stability(prompt):
     url = "https://api.stability.ai/v2beta/stable-image/generate/core"
 
-    headers = {
-        "Authorization": f"Bearer {STABILITY_API_KEY}",
-        "Accept": "image/*"
-    }
+    headers = {"Authorization": f"Bearer {STABILITY_API_KEY}", "Accept": "image/*"}
 
     files = {
         "prompt": (None, prompt),
+        "mode": (None, "text-to-image"),
         "output_format": (None, "png"),
+        "aspect_ratio": (None, "1:1")
     }
 
-    response = requests.post(url, headers=headers, files=files)
+    r = requests.post(url, headers=headers, files=files)
 
-    # 🔍 DEBUG – gerçek hata mesajını ekrana yazdırıyoruz
-    st.write("🟦 STABILITY DEBUG STATUS:", response.status_code)
-    st.write("🟥 STABILITY DEBUG ERROR:", response.text)
+    if r.status_code != 200:
+        raise ValueError(r.text)
 
-    if response.status_code != 200:
-        raise ValueError(f"Stability API Error: {response.text}")
+    return Image.open(BytesIO(r.content))
 
-    return Image.open(BytesIO(response.content))
 # ---------------------------------------------------
 # COMPETITOR ANALYSIS
 # ---------------------------------------------------
