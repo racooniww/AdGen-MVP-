@@ -225,28 +225,34 @@ def translate_to_english_for_image(product_details, audience, platform, tone):
 # ---------------------------------------------------
 STABILITY_API_KEY = st.secrets["STABILITY_API_KEY"]
 
-def generate_image_stability(prompt):
+def generate_image_stability(prompt: str):
+    """
+    Stability v2beta /stable-image/generate/core için
+    doğru multipart/form-data isteği atan fonksiyon.
+    """
     url = "https://api.stability.ai/v2beta/stable-image/generate/core"
 
     headers = {
-        "Authorization": f"Bearer " + STABILITY_API_KEY,
-        "Accept": "image/*"
+        "Authorization": f"Bearer {STABILITY_API_KEY}",
+        "Accept": "image/",          # ÖNEMLİ: image/png değil, image/
     }
 
-    data = {
-        "prompt": prompt,
-        "output_format": "png",
-        "mode": "text-to-image"
+    # multipart/form-data için 'files' kullanıyoruz
+    files = {
+        "prompt": (None, prompt),
+        "output_format": (None, "png"),
+        # İstersen buraya ileride cfg_scale vs. de eklenebilir
     }
 
-    response = requests.post(url, headers=headers, data=data)
+    response = requests.post(url, headers=headers, files=files)
 
-    # -------- DEBUG SATIRI --------
-    st.write("DEBUG Stability Response:", response.text)
+    # Debug satırını istersen bir süre daha tutabilirsin:
+    # st.write("DEBUG Stability Response:", response.text)
 
     if response.status_code != 200:
         raise ValueError(f"Stability API Error: {response.text}")
 
+    # Binary PNG içeriğini Pillow ile aç
     return Image.open(BytesIO(response.content))
 # ---------------------------------------------------
 # COMPETITOR ANALYSIS
